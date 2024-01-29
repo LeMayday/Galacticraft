@@ -249,6 +249,9 @@ public interface Constant {
         String WEB_TORCH = "web_torch";
         String FALLEN_METEOR = "fallen_meteor";
         String SLIMELING_EGG = "slimeling_egg";
+        String RED_SLIMELING_EGG = "red_slimeling_egg";
+        String BLUE_SLIMELING_EGG = "blue_slimeling_egg";
+        String YELLOW_SLIMELING_EGG = "yellow_slimeling_egg";
         String CREEPER_EGG = "creeper_egg";
 
         // Special

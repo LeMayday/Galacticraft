@@ -294,6 +294,9 @@ public class GCItems {
     public static final Item OXYGEN_STORAGE_MODULE = new BlockItem(GCBlocks.OXYGEN_STORAGE_MODULE, new Item.Properties());
     public static final Item FUEL_LOADER = new BlockItem(GCBlocks.FUEL_LOADER, new Item.Properties());
     public static final Item ROCKET_WORKBENCH = new BlockItem(GCBlocks.ROCKET_WORKBENCH, new Item.Properties());
+    public static final Item RED_SLIMELING_EGG = new BlockItem(GCBlocks.RED_SLIMELING_EGG, new Item.Properties());
+    public static final Item BLUE_SLIMELING_EGG = new BlockItem(GCBlocks.BLUE_SLIMELING_EGG, new Item.Properties());
+    public static final Item YELLOW_SLIMELING_EGG = new BlockItem(GCBlocks.YELLOW_SLIMELING_EGG, new Item.Properties());
     // === END BLOCKS ===
 
     // MATERIALS
@@ -721,6 +724,10 @@ public class GCItems {
         Registry.register(BuiltInRegistries.ITEM, Constant.id(Constant.Block.FUEL_LOADER), FUEL_LOADER);
 
         Registry.register(BuiltInRegistries.ITEM, Constant.id(Constant.Block.ROCKET_WORKBENCH), ROCKET_WORKBENCH);
+
+        Registry.register(BuiltInRegistries.ITEM, Constant.id(Constant.Block.RED_SLIMELING_EGG), RED_SLIMELING_EGG);
+        Registry.register(BuiltInRegistries.ITEM, Constant.id(Constant.Block.BLUE_SLIMELING_EGG), BLUE_SLIMELING_EGG);
+        Registry.register(BuiltInRegistries.ITEM, Constant.id(Constant.Block.YELLOW_SLIMELING_EGG), YELLOW_SLIMELING_EGG);
         // === END BLOCKS ===
 
         // MATERIALS

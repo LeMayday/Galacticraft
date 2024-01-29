@@ -352,6 +352,10 @@ public class GCBlocks {
     public static final AirlockBlock AIR_LOCK_CONTROLLER = new AirlockBlock(true, BlockBehaviour.Properties.copy(Blocks.IRON_BLOCK));
     public static final Block AIR_LOCK_SEAL = new Block(BlockBehaviour.Properties.copy(AIR_LOCK_FRAME));
 
+    public static final Block RED_SLIMELING_EGG = new SlimelingEgg(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_RED).strength(0.75f).sound(SoundType.BASALT), SlimelingEgg.EggColor.RED);
+    public static final Block BLUE_SLIMELING_EGG = new SlimelingEgg(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_BLUE).strength(0.75f).sound(SoundType.BASALT), SlimelingEgg.EggColor.BLUE);
+    public static final Block YELLOW_SLIMELING_EGG = new SlimelingEgg(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_YELLOW).strength(0.75f).sound(SoundType.BASALT), SlimelingEgg.EggColor.YELLOW);
+
     public static Block register(String id, Block block) {
         return Registry.register(BuiltInRegistries.BLOCK, Constant.id(id), block);
     }
@@ -630,6 +634,10 @@ public class GCBlocks {
         Registry.register(BuiltInRegistries.BLOCK, Constant.id(Constant.Block.AIR_LOCK_FRAME), AIR_LOCK_FRAME);
         Registry.register(BuiltInRegistries.BLOCK, Constant.id(Constant.Block.AIR_LOCK_CONTROLLER), AIR_LOCK_CONTROLLER);
         Registry.register(BuiltInRegistries.BLOCK, Constant.id(Constant.Block.AIR_LOCK_SEAL), AIR_LOCK_SEAL);
+
+        Registry.register(BuiltInRegistries.BLOCK, Constant.id(Constant.Block.RED_SLIMELING_EGG), RED_SLIMELING_EGG);
+        Registry.register(BuiltInRegistries.BLOCK, Constant.id(Constant.Block.BLUE_SLIMELING_EGG), BLUE_SLIMELING_EGG);
+        Registry.register(BuiltInRegistries.BLOCK, Constant.id(Constant.Block.YELLOW_SLIMELING_EGG), YELLOW_SLIMELING_EGG);
     }
 
     private static BlockBehaviour.Properties oreSettings(float hardness, float resistance, boolean deepslate) {

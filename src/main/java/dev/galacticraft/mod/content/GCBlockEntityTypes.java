@@ -85,6 +85,8 @@ public class GCBlockEntityTypes {
     public static final BlockEntityType<AirlockControllerBlockEntity> AIRLOCK_CONTROLLER = FabricBlockEntityTypeBuilder.create(AirlockControllerBlockEntity::new, GCBlocks.AIR_LOCK_CONTROLLER).build();
     public static final BlockEntityType<RocketWorkbenchBlockEntity> ROCKET_WORKBENCH = FabricBlockEntityTypeBuilder.create(RocketWorkbenchBlockEntity::new, GCBlocks.ROCKET_WORKBENCH).build();
 
+    public static final BlockEntityType<SlimelingEggBlockEntity> SLIMELING_EGG = FabricBlockEntityTypeBuilder.create(SlimelingEggBlockEntity::new, GCBlocks.RED_SLIMELING_EGG, GCBlocks.BLUE_SLIMELING_EGG, GCBlocks.YELLOW_SLIMELING_EGG).build();
+
     public static void register() {
         Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, Constant.id(Constant.Block.COAL_GENERATOR), COAL_GENERATOR);
         Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, Constant.id(Constant.Block.BASIC_SOLAR_PANEL), BASIC_SOLAR_PANEL);
@@ -120,6 +122,7 @@ public class GCBlockEntityTypes {
         Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, Constant.id(Constant.Block.CRYOGENIC_CHAMBER), CRYOGENIC_CHAMBER);
         Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, Constant.id(Constant.Block.AIR_LOCK_CONTROLLER), AIRLOCK_CONTROLLER);
         Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, Constant.id(Constant.Block.ROCKET_WORKBENCH), ROCKET_WORKBENCH);
+        Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, Constant.id(Constant.Block.SLIMELING_EGG), SLIMELING_EGG);
     }
 
     private static void register(String id, BlockEntityType<?> type) {

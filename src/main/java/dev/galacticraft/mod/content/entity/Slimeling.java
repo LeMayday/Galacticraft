@@ -5,6 +5,7 @@ import org.joml.Vector3f;
 import com.google.common.collect.ImmutableList;
 import dev.galacticraft.mod.content.GCEntityTypes;
 import dev.galacticraft.mod.content.GCSounds;
+import dev.galacticraft.mod.content.block.special.SlimelingEgg;
 import dev.galacticraft.mod.content.item.GCItems;
 import dev.galacticraft.mod.tag.GCTags;
 import net.minecraft.Util;
@@ -88,19 +89,10 @@ public class Slimeling extends TamableAnimal implements ContainerListener, HasCu
     public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType reason, @Nullable SpawnGroupData spawnData, @Nullable CompoundTag dataTag) {
         var randomSource = level.getRandom();
 
-        this.setColor(this.getRandomColor(randomSource));
+        this.setColor(SlimelingEgg.EggColor.getRandomColor(randomSource));
         this.setFavoriteFood(this.getRandomFavoriteFood(randomSource));
 
         return super.finalizeSpawn(level, difficulty, reason, spawnData, dataTag);
-    }
-
-    public Vector3f getRandomColor(RandomSource randomSource) {
-        return switch (randomSource.nextInt(3)) {
-            case 0 -> new Vector3f(1.0f, 0.0f, 0.0f); // Red
-            case 1 -> new Vector3f(0.0f, 0.0f, 1.0f); // Blue
-            case 2 -> new Vector3f(1.0f, 1.0f, 0.0f); // Yellow
-            default -> new Vector3f();
-        };
     }
 
     public ItemStack getRandomFavoriteFood(RandomSource randomSource) {
