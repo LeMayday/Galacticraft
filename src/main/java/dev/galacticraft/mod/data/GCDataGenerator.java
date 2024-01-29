@@ -62,6 +62,7 @@ public class GCDataGenerator implements DataGeneratorEntrypoint {
         pack.addProvider(BootstrapDataProvider.create("Galaxies", GalaxyImpl::bootstrapRegistries));
 
         pack.addProvider(GCBlockLootTableProvider::new);
+        pack.addProvider(GCEntityLootTableProvider::new);
         pack.addProvider(GCRecipeProvider::new);
 
         // tags

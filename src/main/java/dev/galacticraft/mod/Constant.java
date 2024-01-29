@@ -50,7 +50,7 @@ public interface Constant {
 
     @Contract(value = "_ -> new", pure = true)
     static @NotNull ResourceLocation id(String id) {
-        return new ResourceLocation(MOD_ID, id);  
+        return new ResourceLocation(MOD_ID, id);
     }
 
     @Contract(value = "_, _ -> new", pure = true)
@@ -558,6 +558,8 @@ public interface Constant {
         String BASIC_ROCKET_BODY_SCHEMATIC = "basic_rocket_body_schematic";
         String BASIC_ROCKET_FINS_SCHEMATIC = "basic_rocket_fins_schematic";
         String BASIC_ROCKET_ENGINE_SCHEMATIC = "basic_rocket_engine_schematic";
+
+        String SLIMELING_INVENTORY_BAG = "slimeling_inventory_bag";
     }
 
     interface Particle {
@@ -668,6 +670,7 @@ public interface Constant {
         String OLI_GRUB = "oli_grub";
         String COMET_CUBE = "comet_cube";
         String GAZER = "gazer";
+        String SLIMELING = "slimeling";
     }
 
     interface EntityTexture {
@@ -789,43 +792,43 @@ public interface Constant {
                 return Style.EMPTY.withColor(TextColor.fromRgb(Mth.hsvToRgb(ticks / 1000.0f, 1, 1)));
             }
         }
-        
+
         interface TranslationKey {
-              String HYDROGEN = "gas.galacticraft.hydrogen";
-              String NITROGEN = "gas.galacticraft.nitrogen";
-              String OXYGEN = "gas.galacticraft.oxygen";
-              String CARBON_DIOXIDE = "gas.galacticraft.carbon_dioxide";
-              String CARBON_MONOXIDE = "gas.galacticraft.carbon_monoxide";
-              String WATER_VAPOR = "gas.galacticraft.water_vapor";
-              String METHANE = "gas.galacticraft.methane";
-              String HELIUM = "gas.galacticraft.helium";
-              String ARGON = "gas.galacticraft.argon";
-              String NITROUS_OXIDE = "gas.galacticraft.nitrous_oxide";
-              String NEON = "gas.galacticraft.neon";
-              String KRYPTON = "gas.galacticraft.krypton";
-              String XENON = "gas.galacticraft.xenon";
-              String OZONE = "gas.galacticraft.ozone";
-              String NITROUS_DIOXIDE = "gas.galacticraft.nitrous_dioxide";
-              String IODINE = "gas.galacticraft.iodine";
-              String NOT_ENOUGH_LEAVES = "ui.galacticraft.machine.status.not_enough_leaves";
-              String ACTIVE = "ui.galacticraft.machine.status.active";
-              String IDLE = "ui.galacticraft.machine.status.idle";
-              String WARMING = "ui.galacticraft.machine.status.warming";
-              String INACTIVE = "ui.galacticraft.machine.status.inactive";
-              String NOT_ENOUGH_ENERGY = "ui.galacticraft.machine.status.not_enough_energy";
-              String OFF = "ui.galacticraft.machine.status.off";
-              String PROCESSING = "ui.galacticraft.machine.status.processing";
-              String COLLECTING = "ui.galacticraft.machine.status.collecting";
-              String COMPRESSING = "ui.galacticraft.machine.status.compressing";
-              String DECOMPRESSING = "ui.galacticraft.machine.status.decompressing";
-              String PARTIALLY_BLOCKED = "ui.galacticraft.machine.status.partially_blocked";
-              String NIGHT = "ui.galacticraft.machine.status.night";
-              String FULL = "ui.galacticraft.machine.status.full";
-              String EMPTY_CANISTER = "ui.galacticraft.machine.status.empty_canister";
-              String BLOCKED = "ui.galacticraft.machine.status.blocked";
-              String DISTRIBUTING = "ui.galacticraft.machine.status.distributing";
-              String NOT_ENOUGH_OXYGEN = "ui.galacticraft.machine.status.not_enough_oxygen";
-              String NOT_ENOUGH_ITEMS = "ui.galacticraft.machine.status.not_enough_items";
+            String HYDROGEN = "gas.galacticraft.hydrogen";
+            String NITROGEN = "gas.galacticraft.nitrogen";
+            String OXYGEN = "gas.galacticraft.oxygen";
+            String CARBON_DIOXIDE = "gas.galacticraft.carbon_dioxide";
+            String CARBON_MONOXIDE = "gas.galacticraft.carbon_monoxide";
+            String WATER_VAPOR = "gas.galacticraft.water_vapor";
+            String METHANE = "gas.galacticraft.methane";
+            String HELIUM = "gas.galacticraft.helium";
+            String ARGON = "gas.galacticraft.argon";
+            String NITROUS_OXIDE = "gas.galacticraft.nitrous_oxide";
+            String NEON = "gas.galacticraft.neon";
+            String KRYPTON = "gas.galacticraft.krypton";
+            String XENON = "gas.galacticraft.xenon";
+            String OZONE = "gas.galacticraft.ozone";
+            String NITROUS_DIOXIDE = "gas.galacticraft.nitrous_dioxide";
+            String IODINE = "gas.galacticraft.iodine";
+            String NOT_ENOUGH_LEAVES = "ui.galacticraft.machine.status.not_enough_leaves";
+            String ACTIVE = "ui.galacticraft.machine.status.active";
+            String IDLE = "ui.galacticraft.machine.status.idle";
+            String WARMING = "ui.galacticraft.machine.status.warming";
+            String INACTIVE = "ui.galacticraft.machine.status.inactive";
+            String NOT_ENOUGH_ENERGY = "ui.galacticraft.machine.status.not_enough_energy";
+            String OFF = "ui.galacticraft.machine.status.off";
+            String PROCESSING = "ui.galacticraft.machine.status.processing";
+            String COLLECTING = "ui.galacticraft.machine.status.collecting";
+            String COMPRESSING = "ui.galacticraft.machine.status.compressing";
+            String DECOMPRESSING = "ui.galacticraft.machine.status.decompressing";
+            String PARTIALLY_BLOCKED = "ui.galacticraft.machine.status.partially_blocked";
+            String NIGHT = "ui.galacticraft.machine.status.night";
+            String FULL = "ui.galacticraft.machine.status.full";
+            String EMPTY_CANISTER = "ui.galacticraft.machine.status.empty_canister";
+            String BLOCKED = "ui.galacticraft.machine.status.blocked";
+            String DISTRIBUTING = "ui.galacticraft.machine.status.distributing";
+            String NOT_ENOUGH_OXYGEN = "ui.galacticraft.machine.status.not_enough_oxygen";
+            String NOT_ENOUGH_ITEMS = "ui.galacticraft.machine.status.not_enough_items";
         }
     }
 

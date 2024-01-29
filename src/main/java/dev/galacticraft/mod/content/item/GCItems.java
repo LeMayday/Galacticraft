@@ -295,10 +295,10 @@ public class GCItems {
     public static final Item FUEL_LOADER = new BlockItem(GCBlocks.FUEL_LOADER, new Item.Properties());
     public static final Item ROCKET_WORKBENCH = new BlockItem(GCBlocks.ROCKET_WORKBENCH, new Item.Properties());
     // === END BLOCKS ===
-    
+
     // MATERIALS
     public static final Item RAW_SILICON = new Item(new Item.Properties());
-    
+
     public static final Item RAW_METEORIC_IRON = new Item(new Item.Properties());
     public static final Item METEORIC_IRON_INGOT = new Item(new Item.Properties());
     public static final Item METEORIC_IRON_NUGGET = new Item(new Item.Properties());
@@ -312,7 +312,7 @@ public class GCItems {
     public static final Item RAW_LEAD = new Item(new Item.Properties());
     public static final Item LEAD_INGOT = new Item(new Item.Properties());
     public static final Item LEAD_NUGGET = new Item(new Item.Properties());
-    
+
     public static final Item RAW_ALUMINUM = new Item(new Item.Properties());
     public static final Item ALUMINUM_INGOT = new Item(new Item.Properties());
     public static final Item ALUMINUM_NUGGET = new Item(new Item.Properties());
@@ -332,7 +332,7 @@ public class GCItems {
     public static final Item COMPRESSED_COPPER = new Item(new Item.Properties());
     public static final Item COMPRESSED_IRON = new Item(new Item.Properties());
     public static final Item COMPRESSED_STEEL = new Item(new Item.Properties());
-    
+
     public static final Item LUNAR_SAPPHIRE = new Item(new Item.Properties());
     public static final Item DESH_STICK = new Item(new Item.Properties());
     public static final Item CARBON_FRAGMENTS = new Item(new Item.Properties());
@@ -342,7 +342,7 @@ public class GCItems {
     public static final Item ADVANCED_WAFER = new Item(new Item.Properties());
     public static final Item BEAM_CORE = new Item(new Item.Properties());
     public static final Item CANVAS = new Item(new Item.Properties());
-    
+
     public static final Item FLUID_MANIPULATOR = new Item(new Item.Properties());
     public static final Item OXYGEN_CONCENTRATOR = new Item(new Item.Properties());
     public static final Item OXYGEN_FAN = new Item(new Item.Properties());
@@ -360,23 +360,23 @@ public class GCItems {
     public static final Item ORION_DRIVE = new Item(new Item.Properties());
     public static final Item ATMOSPHERIC_VALVE = new Item(new Item.Properties());
     public static final Item AMBIENT_THERMAL_CONTROLLER = new Item(new Item.Properties());
-    
+
     // FOOD
     public static final Item MOON_BERRIES = new ItemNameBlockItem(GCBlocks.MOON_BERRY_BUSH, new Item.Properties().food(GCFoodComponent.MOON_BERRIES));
     public static final Item CHEESE_CURD = new Item(new Item.Properties().food(GCFoodComponent.CHEESE_CURD));
-    
+
     public static final Item CHEESE_SLICE = ITEMS.register(Constant.Item.CHEESE_SLICE, new Item(new Item.Properties().food(GCFoodComponent.CHEESE_SLICE)));
     public static final Item BURGER_BUN = ITEMS.register(Constant.Item.BURGER_BUN, new Item(new Item.Properties().food(GCFoodComponent.BURGER_BUN)));
     public static final Item GROUND_BEEF = ITEMS.register(Constant.Item.GROUND_BEEF, new Item(new Item.Properties().food(GCFoodComponent.GROUND_BEEF)));
     public static final Item BEEF_PATTY = ITEMS.register(Constant.Item.BEEF_PATTY, new Item(new Item.Properties().food(GCFoodComponent.BEEF_PATTY)));
     public static final Item CHEESEBURGER = ITEMS.register(Constant.Item.CHEESEBURGER, new Item(new Item.Properties().food(GCFoodComponent.CHEESEBURGER)));
-    
+
     public static final Item CANNED_DEHYDRATED_APPLE = new CannedFoodItem(new Item.Properties().food(GCFoodComponent.DEHYDRATED_APPLE));
     public static final Item CANNED_DEHYDRATED_CARROT = new CannedFoodItem(new Item.Properties().food(GCFoodComponent.DEHYDRATED_CARROT));
     public static final Item CANNED_DEHYDRATED_MELON = new CannedFoodItem(new Item.Properties().food(GCFoodComponent.DEHYDRATED_MELON));
     public static final Item CANNED_DEHYDRATED_POTATO = new CannedFoodItem(new Item.Properties().food(GCFoodComponent.DEHYDRATED_POTATO));
     public static final Item CANNED_BEEF = new CannedFoodItem(new Item.Properties().food(GCFoodComponent.CANNED_BEEF));
-    
+
     // ROCKET PLATES
     public static final Item TIER_1_HEAVY_DUTY_PLATE = ITEMS.register(Constant.Item.TIER_1_HEAVY_DUTY_PLATE, new Item(new Item.Properties()));
     public static final Item TIER_2_HEAVY_DUTY_PLATE = ITEMS.register(Constant.Item.TIER_2_HEAVY_DUTY_PLATE, new Item(new Item.Properties()));
@@ -482,7 +482,9 @@ public class GCItems {
     public static final Item MOON_BUGGY_SCHEMATIC = new SchematicItem(new Item.Properties());
     public static final Item TIER_3_ROCKET_SCHEMATIC = new SchematicItem(new Item.Properties());
     public static final Item ASTRO_MINER_SCHEMATIC = new SchematicItem(new Item.Properties());
-    
+
+    public static final Item SLIMELING_INVENTORY_BAG = new Item(new Item.Properties().stacksTo(1));
+
     public static void register() {
         // === START BLOCKS ===
 
@@ -890,6 +892,8 @@ public class GCItems {
         Registry.register(BuiltInRegistries.ITEM, Constant.id(Constant.Block.AIR_LOCK_FRAME), AIR_LOCK_FRAME);
         Registry.register(BuiltInRegistries.ITEM, Constant.id(Constant.Block.AIR_LOCK_CONTROLLER), AIR_LOCK_CONTROLLER);
         Registry.register(BuiltInRegistries.ITEM, Constant.id(Constant.Block.AIR_LOCK_SEAL), AIR_LOCK_SEAL);
+
+        Registry.register(BuiltInRegistries.ITEM, Constant.id(Constant.Item.SLIMELING_INVENTORY_BAG), SLIMELING_INVENTORY_BAG);
 
         DispenserBlock.registerBehavior(FUEL_BUCKET, DispenserBlock.DISPENSER_REGISTRY.get(Items.WATER_BUCKET));
         DispenserBlock.registerBehavior(CRUDE_OIL_BUCKET, DispenserBlock.DISPENSER_REGISTRY.get(Items.WATER_BUCKET));

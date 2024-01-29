@@ -206,16 +206,16 @@ public class GCModelProvider extends FabricModelProvider {
         // MISC WORLD GEN
         this.createCavernousVines(generator);
         generator.blockStateOutput.accept(MultiVariantGenerator.multiVariant(GCBlocks.MOON_BERRY_BUSH)
-                        .with(PropertyDispatch.property(BlockStateProperties.AGE_3)
-                                        .generate(integer -> Variant.variant().with(VariantProperties.MODEL, generator.createSuffixedVariant(GCBlocks.MOON_BERRY_BUSH, "_stage" + integer, ModelTemplates.CROSS, TextureMapping::cross)))
-                        )
+                .with(PropertyDispatch.property(BlockStateProperties.AGE_3)
+                        .generate(integer -> Variant.variant().with(VariantProperties.MODEL, generator.createSuffixedVariant(GCBlocks.MOON_BERRY_BUSH, "_stage" + integer, ModelTemplates.CROSS, TextureMapping::cross)))
+                )
         );
 
         // DUMMY
         generator.createAirLikeBlock(GCBlocks.SOLAR_PANEL_PART, GCItems.BLUE_SOLAR_WAFER);
 
         // MISC MACHINES
-//        generator.createNonTemplateModelBlock(GCBlocks.CRYOGENIC_CHAMBER);
+        //        generator.createNonTemplateModelBlock(GCBlocks.CRYOGENIC_CHAMBER);
         generator.createNonTemplateModelBlock(GCBlocks.PLAYER_TRANSPORT_TUBE);
 
         //todo gen models (not just blockstates)
@@ -513,6 +513,8 @@ public class GCModelProvider extends FabricModelProvider {
         generator.generateFlatItem(GCItems.MOON_BUGGY_SCHEMATIC, ModelTemplates.FLAT_ITEM);
         generator.generateFlatItem(GCItems.TIER_3_ROCKET_SCHEMATIC, ModelTemplates.FLAT_ITEM);
         generator.generateFlatItem(GCItems.ASTRO_MINER_SCHEMATIC, ModelTemplates.FLAT_ITEM);
+
+        generator.generateFlatItem(GCItems.SLIMELING_INVENTORY_BAG, ModelTemplates.FLAT_ITEM);
     }
 
     @Contract("_ -> new")
