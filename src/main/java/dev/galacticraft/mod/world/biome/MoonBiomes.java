@@ -46,6 +46,10 @@ public class MoonBiomes {
         return MoonBiomes.moon(featureLookup, carverLookup);
     }
 
+    public static Biome createLunarLowlands(HolderGetter<PlacedFeature> featureLookup, HolderGetter<ConfiguredWorldCarver<?>> carverLookup) {
+        return MoonBiomes.moon(featureLookup, carverLookup);
+    }
+
     public static Biome createOlivineSpikes(HolderGetter<PlacedFeature> featureLookup, HolderGetter<ConfiguredWorldCarver<?>> carverLookup) {
         return MoonBiomes.moon(featureLookup, carverLookup);
     }
@@ -94,7 +98,7 @@ public class MoonBiomes {
         return new Biome.BiomeBuilder()
                 .mobSpawnSettings(spawnBuilder.build())
                 .hasPrecipitation(false)
-                .temperature(0.0F)
+                .temperature(2.0F) // temp is hot to prevent snow
                 .downfall(0.0F)
                 .specialEffects(specialEffects.build())
                 .generationSettings(generation.build())
