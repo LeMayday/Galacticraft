@@ -477,6 +477,7 @@ public interface Constant {
         String DESH_SWORD = "desh_sword";
         String DESH_SHOVEL = "desh_shovel";
         String DESH_PICKAXE = "desh_pickaxe";
+        String STICKY_DESH_PICKAXE = "sticky_desh_pickaxe";
         String DESH_AXE = "desh_axe";
         String DESH_HOE = "desh_hoe";
 
@@ -684,6 +685,7 @@ public interface Constant {
         String COMET_CUBE = "textures/entity/comet_cube.png";
         String GAZER = "textures/entity/gazer.png";
         String LANDER = "textures/entity/lander.png";
+        String SLIMELING = "textures/entity/slimeling.png";
     }
 
     interface TextureCoordinate {

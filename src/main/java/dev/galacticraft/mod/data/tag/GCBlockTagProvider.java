@@ -278,7 +278,10 @@ public class GCBlockTagProvider extends FabricTagProvider.BlockTagProvider {
                         GCBlocks.MOON_BASALT_BRICK,
                         GCBlocks.CRACKED_MOON_BASALT_BRICK,
                         GCBlocks.MARS_STONE,
-                        GCBlocks.MARS_COBBLESTONE
+                        GCBlocks.MARS_COBBLESTONE,
+                        GCBlocks.RED_SLIMELING_EGG,
+                        GCBlocks.BLUE_SLIMELING_EGG,
+                        GCBlocks.YELLOW_SLIMELING_EGG
                 );
 
         this.tag(BlockTags.MINEABLE_WITH_SHOVEL)
@@ -358,12 +361,13 @@ public class GCBlockTagProvider extends FabricTagProvider.BlockTagProvider {
                 .filterElements(block -> BuiltInRegistries.BLOCK.getKey(block).getNamespace().equals(Constant.MOD_ID) && block.defaultBlockState().canBeReplaced())
                 .listElementIds()
                 .forEach(replaceableTagAppender::add);
-        
-        tag(GCTags.FOOTPRINTS)
+
+        this.tag(GCTags.FOOTPRINTS)
                 .add(GCBlocks.MOON_TURF);
     }
 
+    @Override
     protected FabricTagProvider<Block>.FabricTagBuilder tag(TagKey<Block> tag) {
-        return getOrCreateTagBuilder(tag);
+        return this.getOrCreateTagBuilder(tag);
     }
 }

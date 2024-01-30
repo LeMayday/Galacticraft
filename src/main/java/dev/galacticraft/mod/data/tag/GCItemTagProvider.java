@@ -42,31 +42,33 @@ public class GCItemTagProvider extends FabricTagProvider.ItemTagProvider {
 
     @Override
     protected void addTags(HolderLookup.Provider provider) {
-        tag(ItemTags.AXES)
+        this.tag(ItemTags.AXES)
                 .add(GCItems.HEAVY_DUTY_AXE)
                 .add(GCItems.DESH_AXE)
                 .add(GCItems.TITANIUM_AXE);
-        tag(ItemTags.HOES)
+        this.tag(ItemTags.HOES)
                 .add(GCItems.HEAVY_DUTY_HOE)
                 .add(GCItems.DESH_HOE)
                 .add(GCItems.TITANIUM_HOE);
-        tag(ItemTags.PICKAXES)
+        this.tag(ItemTags.PICKAXES)
                 .add(GCItems.HEAVY_DUTY_PICKAXE)
                 .add(GCItems.DESH_PICKAXE)
+                .add(GCItems.STICKY_DESH_PICKAXE)
                 .add(GCItems.TITANIUM_PICKAXE);
-        tag(ItemTags.SHOVELS)
+        this.tag(ItemTags.SHOVELS)
                 .add(GCItems.HEAVY_DUTY_SHOVEL)
                 .add(GCItems.DESH_SHOVEL)
                 .add(GCItems.TITANIUM_SHOVEL);
-        tag(ItemTags.SWORDS)
+        this.tag(ItemTags.SWORDS)
                 .add(GCItems.HEAVY_DUTY_SWORD)
                 .add(GCItems.DESH_SWORD)
                 .add(GCItems.TITANIUM_SWORD);
-        tag(ItemTags.CLUSTER_MAX_HARVESTABLES)
+        this.tag(ItemTags.CLUSTER_MAX_HARVESTABLES)
                 .add(GCItems.HEAVY_DUTY_PICKAXE)
                 .add(GCItems.DESH_PICKAXE)
+                .add(GCItems.STICKY_DESH_PICKAXE)
                 .add(GCItems.TITANIUM_PICKAXE);
-        tag(ItemTags.TRIMMABLE_ARMOR)
+        this.tag(ItemTags.TRIMMABLE_ARMOR)
                 .add(GCItems.HEAVY_DUTY_HELMET)
                 .add(GCItems.HEAVY_DUTY_CHESTPLATE)
                 .add(GCItems.HEAVY_DUTY_LEGGINGS)
@@ -80,33 +82,33 @@ public class GCItemTagProvider extends FabricTagProvider.ItemTagProvider {
                 .add(GCItems.TITANIUM_LEGGINGS)
                 .add(GCItems.TITANIUM_BOOTS);
 
-        tag(GCTags.ALUMINUM_INGOTS)
+        this.tag(GCTags.ALUMINUM_INGOTS)
                 .add(GCItems.ALUMINUM_INGOT);
-        tag(GCTags.RAW_ALUMINUM_ORES)
+        this.tag(GCTags.RAW_ALUMINUM_ORES)
                 .add(GCItems.RAW_ALUMINUM);
-        tag(GCTags.LEAD_INGOTS)
+        this.tag(GCTags.LEAD_INGOTS)
                 .add(GCItems.LEAD_INGOT);
-        tag(GCTags.RAW_LEAD_ORES)
+        this.tag(GCTags.RAW_LEAD_ORES)
                 .add(GCItems.RAW_LEAD);
-        tag(GCTags.SILICONS)
+        this.tag(GCTags.SILICONS)
                 .add(GCItems.RAW_SILICON);
-        tag(GCTags.TIN_INGOTS)
+        this.tag(GCTags.TIN_INGOTS)
                 .add(GCItems.TIN_INGOT);
-        tag(GCTags.RAW_TIN_ORES)
+        this.tag(GCTags.RAW_TIN_ORES)
                 .add(GCItems.RAW_TIN);
-        tag(GCTags.COMPRESSED_STEEL)
+        this.tag(GCTags.COMPRESSED_STEEL)
                 .add(GCItems.COMPRESSED_STEEL);
-        tag(GCTags.COMPRESSED_IRON)
+        this.tag(GCTags.COMPRESSED_IRON)
                 .add(GCItems.COMPRESSED_IRON);
-        tag(GCTags.COMPRESSED_TIN)
+        this.tag(GCTags.COMPRESSED_TIN)
                 .add(GCItems.COMPRESSED_TIN);
-        tag(ItemTags.CREEPER_DROP_MUSIC_DISCS); //fixme
+        this.tag(ItemTags.CREEPER_DROP_MUSIC_DISCS); //fixme
         //        "galacticraft:legacy_music_disc_mars",
         //        "galacticraft:legacy_music_disc_mimas",
         //        "galacticraft:legacy_music_disc_orbit",
         //        "galacticraft:legacy_music_disc_spacerace"
 
-        tag(GCTags.SLIMELING_FAVORITE_FOODS)
+        this.tag(GCTags.SLIMELING_FAVORITE_FOODS)
                 .add(
                         Items.GOLD_INGOT,
                         Items.FLINT_AND_STEEL,
@@ -118,10 +120,10 @@ public class GCItemTagProvider extends FabricTagProvider.ItemTagProvider {
                         Items.REPEATER
                 ).forceAddTag(ItemTags.FISHES).forceAddTag(ItemTags.BOATS);
 
-        tag(GCTags.SLIMELING_FOODS).add(Items.SLIME_BALL);
+        this.tag(GCTags.SLIMELING_FOODS).add(Items.SLIME_BALL);
 
         // Ore Tags
-        tag(ConventionalItemTags.ORES).add(
+        this.tag(ConventionalItemTags.ORES).add(
                 GCItems.SILICON_ORE, GCItems.DEEPSLATE_SILICON_ORE,
                 GCItems.MOON_COPPER_ORE, GCItems.LUNASLATE_COPPER_ORE,
                 GCItems.TIN_ORE, GCItems.DEEPSLATE_TIN_ORE, GCItems.MOON_TIN_ORE, GCItems.LUNASLATE_TIN_ORE,
@@ -132,7 +134,8 @@ public class GCItemTagProvider extends FabricTagProvider.ItemTagProvider {
         );
     }
 
+    @Override
     protected FabricTagProvider<Item>.FabricTagBuilder tag(TagKey<Item> tag) {
-        return getOrCreateTagBuilder(tag);
+        return this.getOrCreateTagBuilder(tag);
     }
 }

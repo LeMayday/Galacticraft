@@ -11,7 +11,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -79,7 +78,6 @@ public class SlimelingEgg extends BaseEntityBlock implements SimpleWaterloggedBl
                 level.setBlock(pos, state.setValue(HATCH, this.getHatchLevel(state) + 1), 2);
             } else {
                 level.playSound(null, pos, SoundEvents.SNIFFER_EGG_HATCH, SoundSource.BLOCKS, 0.7F, 0.9F + random.nextFloat() * 0.2F);
-                level.destroyBlock(pos, false);
 
                 if (level.getBlockEntity(pos) instanceof SlimelingEggBlockEntity slimelingEgg && slimelingEgg.ownerUUID != null) {
                     var slimeling = GCEntityTypes.SLIMELING.create(level);
@@ -92,22 +90,8 @@ public class SlimelingEgg extends BaseEntityBlock implements SimpleWaterloggedBl
 
                     level.addFreshEntity(slimeling);
                 }
+                level.destroyBlock(pos, false);
             }
-        }
-    }
-
-    @Override
-    public void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
-        if (state.getValue(CRACKED)) {
-            var boostBlock = hatchBoost(level, pos);
-            if (!level.isClientSide() && boostBlock) {
-                level.levelEvent(LevelEvent.PARTICLES_EGG_CRACK, pos, 0);
-            }
-
-            var ticks = boostBlock ? 12000 : 24000;
-            var j = ticks / 3;
-            level.gameEvent(GameEvent.BLOCK_PLACE, pos, GameEvent.Context.of(state));
-            level.scheduleTick(pos, this, j + level.random.nextInt(300));
         }
     }
 
@@ -136,6 +120,17 @@ public class SlimelingEgg extends BaseEntityBlock implements SimpleWaterloggedBl
             if (level.getBlockEntity(pos) instanceof SlimelingEggBlockEntity slimelingEgg) {
                 slimelingEgg.ownerUUID = player.getUUID();
             }
+
+            var boostBlock = hatchBoost(level, pos);
+            if (!level.isClientSide() && boostBlock) {
+                level.levelEvent(LevelEvent.PARTICLES_EGG_CRACK, pos, 0);
+            }
+
+            var ticks = boostBlock ? 12000 : 24000;
+            var j = ticks / 3;
+            level.gameEvent(GameEvent.BLOCK_CHANGE, pos, GameEvent.Context.of(state));
+            level.scheduleTick(pos, this, j + level.random.nextInt(300));
+
             return InteractionResult.SUCCESS;
         }
         return super.use(state, level, pos, player, hand, hit);
@@ -146,9 +141,9 @@ public class SlimelingEgg extends BaseEntityBlock implements SimpleWaterloggedBl
         super.playerDestroy(level, player, pos, state, blockEntity, tool);
 
         if (tool.is(GCItems.DESH_PICKAXE)) {
-            var itemStack2 = new ItemStack(GCItems.DESH_PICKAXE);//TODO Add deshPickSlime
-            itemStack2.setTag(tool.getTag());
-            player.setItemInHand(player.getUsedItemHand(), itemStack2);
+            var newStickyDeshPick = new ItemStack(GCItems.STICKY_DESH_PICKAXE);
+            newStickyDeshPick.setTag(tool.getTag());
+            player.setItemInHand(player.getUsedItemHand(), newStickyDeshPick);
             level.destroyBlock(pos, false);
         }
     }
@@ -185,13 +180,12 @@ public class SlimelingEgg extends BaseEntityBlock implements SimpleWaterloggedBl
     }
 
     public static boolean hatchBoost(BlockGetter level, BlockPos pos) {
-        return level.getBlockState(pos.below()).is(BlockTags.SNIFFER_EGG_HATCH_BOOST);
+        return level.getBlockState(pos.below()).is(Blocks.SLIME_BLOCK);//TODO Hatch boost block tag?
     }
 
     private void destroyEgg(Level level, BlockState state, BlockPos pos, Entity entity, int chance) {
         if (this.canDestroyEgg(level, entity)) {
             if (!level.isClientSide() && level.random.nextInt(chance) == 0 && state.is(this)) {
-                level.playSound(null, pos, SoundEvents.TURTLE_EGG_BREAK, SoundSource.BLOCKS, 0.7F, 0.9F + level.random.nextFloat() * 0.2F);
                 level.destroyBlock(pos, false);
                 level.gameEvent(GameEvent.BLOCK_DESTROY, pos, GameEvent.Context.of(state));
                 level.levelEvent(LevelEvent.PARTICLES_DESTROY_BLOCK, pos, Block.getId(state));

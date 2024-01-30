@@ -413,6 +413,7 @@ public class GCItems {
     public static final Item DESH_SWORD = new SwordItem(GCToolMaterial.DESH, 3, -2.4F, new Item.Properties());
     public static final Item DESH_SHOVEL = new ShovelItem(GCToolMaterial.DESH, -1.5F, -3.0F, new Item.Properties());
     public static final Item DESH_PICKAXE = new PickaxeItem(GCToolMaterial.DESH, 1, -2.8F, new Item.Properties());
+    public static final Item STICKY_DESH_PICKAXE = new PickaxeItem(GCToolMaterial.DESH, 1, -2.8F, new Item.Properties());
     public static final Item DESH_AXE = new AxeItem(GCToolMaterial.DESH, 6.0F, -3.1F, new Item.Properties());
     public static final Item DESH_HOE = new HoeItem(GCToolMaterial.DESH, -3, -1.0F, new Item.Properties());
 
@@ -831,6 +832,7 @@ public class GCItems {
         Registry.register(BuiltInRegistries.ITEM, Constant.id(Constant.Item.DESH_SWORD), DESH_SWORD);
         Registry.register(BuiltInRegistries.ITEM, Constant.id(Constant.Item.DESH_SHOVEL), DESH_SHOVEL);
         Registry.register(BuiltInRegistries.ITEM, Constant.id(Constant.Item.DESH_PICKAXE), DESH_PICKAXE);
+        Registry.register(BuiltInRegistries.ITEM, Constant.id(Constant.Item.STICKY_DESH_PICKAXE), STICKY_DESH_PICKAXE);
         Registry.register(BuiltInRegistries.ITEM, Constant.id(Constant.Item.DESH_AXE), DESH_AXE);
         Registry.register(BuiltInRegistries.ITEM, Constant.id(Constant.Item.DESH_HOE), DESH_HOE);
 
