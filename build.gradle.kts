@@ -233,6 +233,7 @@ dependencies {
     })
     modImplementation("net.fabricmc:fabric-loader:$loaderVersion")
     modImplementation("net.fabricmc.fabric-api:fabric-api:$fabricVersion")
+    modImplementation("net.fabricmc:sponge-mixin:0.12.5+mixin.0.8.5")
 
     // Mandatory Dependencies (Included with Jar-In-Jar)
     include(implementation("de.javagl:obj:$objVersion")) {}

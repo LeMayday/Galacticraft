@@ -30,11 +30,20 @@ import net.minecraft.world.level.levelgen.carver.ConfiguredWorldCarver;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 
 public class MarsBiomes {
+
+    public static Biome createMarsHighland(HolderGetter<PlacedFeature> featureLookup, HolderGetter<ConfiguredWorldCarver<?>> carverLookup) {
+        return MarsBiomes.mars(featureLookup, carverLookup, new BiomeGenerationSettings.Builder(featureLookup, carverLookup));
+    }
+
+    public static Biome createMarsLowland(HolderGetter<PlacedFeature> featureLookup, HolderGetter<ConfiguredWorldCarver<?>> carverLookup) {
+        return MarsBiomes.mars(featureLookup, carverLookup, new BiomeGenerationSettings.Builder(featureLookup, carverLookup));
+    }
+
     public static Biome mars(
-            HolderGetter<PlacedFeature> featureGetter, HolderGetter<ConfiguredWorldCarver<?>> carverGetter
+            HolderGetter<PlacedFeature> featureGetter, HolderGetter<ConfiguredWorldCarver<?>> carverGetter, BiomeGenerationSettings.Builder generation
     ) {
         MobSpawnSettings.Builder spawnBuilder = new MobSpawnSettings.Builder();
-        BiomeGenerationSettings.Builder generation = new BiomeGenerationSettings.Builder(featureGetter, carverGetter);
+        //BiomeGenerationSettings.Builder generation = new BiomeGenerationSettings.Builder(featureGetter, carverGetter);
         BiomeSpecialEffects.Builder specialEffects = new BiomeSpecialEffects.Builder();
         specialEffects.waterColor(4159204)
                 .waterFogColor(329011)

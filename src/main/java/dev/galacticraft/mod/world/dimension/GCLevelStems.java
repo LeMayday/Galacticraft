@@ -42,6 +42,7 @@ import org.jetbrains.annotations.NotNull;
 
 public class GCLevelStems {
     public static final ResourceKey<LevelStem> MOON = key("moon");
+    public static final ResourceKey<LevelStem> MARS = key("mars");
     public static final ResourceKey<LevelStem> VENUS = key("venus");
     public static final ResourceKey<LevelStem> ASTEROID = key("asteroid");
 

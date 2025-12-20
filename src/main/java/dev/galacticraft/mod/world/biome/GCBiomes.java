@@ -51,6 +51,14 @@ public final class GCBiomes {
         public static final ResourceKey<Biome> VENUS_MOUNTAIN = key("venus_mountain");
     }
 
+    public static final class Mars {
+        public static final ResourceKey<Biome> MARS_HIGHLAND = key("mars_highland");
+        public static final ResourceKey<Biome> MARS_LOWLAND = key("mars_lowland");
+        //public static final ResourceKey<Biome> CERBERUS_FLOWS = key("cerberus_flows");
+        //public static final ResourceKey<Biome> POLAR_CAP_PLATEAU = key("polar_cap_plateau");
+        //public static final ResourceKey<Biome> DUNE_FIELDS = key("dune_fields");
+    }
+
     public static final class Asteroid {
         public static final ResourceKey<Biome> ASTEROID_FIELD = key("asteroid_field");
     }
@@ -82,6 +90,9 @@ public final class GCBiomes {
         context.register(Moon.LUNAR_HIGHLANDS, MoonBiomes.createLunarHighlands(featureLookup, carverLookup));
         context.register(Moon.LUNAR_LOWLANDS, MoonBiomes.createLunarLowlands(featureLookup, carverLookup));
         context.register(Moon.OLIVINE_SPIKES, MoonBiomes.createOlivineSpikes(featureLookup, carverLookup));
+
+        context.register(Mars.MARS_HIGHLAND, MarsBiomes.createMarsHighland(featureLookup, carverLookup));
+        context.register(Mars.MARS_LOWLAND, MarsBiomes.createMarsLowland(featureLookup, carverLookup));
 
         context.register(Venus.VENUS_VALLEY, VenusBiomes.venus(featureLookup, carverLookup));
         context.register(Venus.VENUS_FLAT, VenusBiomes.venus(featureLookup, carverLookup));

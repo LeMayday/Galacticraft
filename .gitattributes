@@ -3,6 +3,8 @@
 
 # Text
 *.properties    text
+*.java text eol=lf
+*.json text eol=lf
 
 # Java
 *.java          text diff=java
