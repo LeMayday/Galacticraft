@@ -24,6 +24,7 @@ package dev.galacticraft.mod.world.gen;
 
 import dev.galacticraft.mod.Constant;
 import dev.galacticraft.mod.content.GCBlocks;
+import dev.galacticraft.mod.world.gen.surfacerule.MarsSurfaceRules;
 import dev.galacticraft.mod.world.gen.surfacerule.VenusSurfaceRules;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.registries.Registries;
@@ -41,6 +42,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class GCNoiseGeneratorSettings {
     public static final ResourceKey<NoiseGeneratorSettings> MOON = key("moon");
+    public static final ResourceKey<NoiseGeneratorSettings> MARS = key("mars");
     public static final ResourceKey<NoiseGeneratorSettings> VENUS = key("venus");
 
     public static void bootstrapRegistries(BootstrapContext<NoiseGeneratorSettings> context) {
@@ -60,6 +62,20 @@ public class GCNoiseGeneratorSettings {
 //                false,
 //                false
 //        ));
+
+        context.register(MARS, new NoiseGeneratorSettings(
+                NoiseSettings.create(-32, 256, 1, 2),
+                GCBlocks.HARD_VENUS_ROCK.defaultBlockState(),
+                Blocks.AIR.defaultBlockState(),
+                GCNoiseGeneratorSettings.mars(densityLookup, noiseLookup),
+                MarsSurfaceRules.MARS,
+                new OverworldBiomeBuilder().spawnTarget(),
+                -32,
+                false,
+                false,
+                false,
+                false
+        ));
 
         context.register(VENUS, new NoiseGeneratorSettings(
                 NoiseSettings.create(-32, 256, 1, 2),
@@ -128,6 +144,26 @@ public class GCNoiseGeneratorSettings {
                         )
                 ), // initialDensityWithoutJaggedness
                 DensityFunctions.blendDensity(GCDensityFunctions.getFunction(densityLookup, GCDensityFunctions.Moon.FINAL_DENSITY)), // finalDensity
+                DensityFunctions.zero(), // veinToggle
+                DensityFunctions.zero(), // veinRidged
+                DensityFunctions.zero()  // veinGap
+        );
+    }
+
+    public static NoiseRouter mars(HolderGetter<DensityFunction> densityLookup, HolderGetter<NormalNoise.NoiseParameters> noiseLookup) {
+        return new NoiseRouter(
+                DensityFunctions.zero(), // barrierNoise
+                DensityFunctions.zero(), // fluidLevelFloodednessNoise
+                DensityFunctions.zero(), // fluidLevelSpreadNoise
+                DensityFunctions.zero(), // lavaNoise
+                DensityFunctions.zero(), // temperature
+                DensityFunctions.zero(), // vegetation
+                DensityFunctions.zero(), // continents
+                DensityFunctions.zero(), // erosion
+                DensityFunctions.zero(), // depth
+                DensityFunctions.zero(), // ridges
+                DensityFunctions.noise(noiseLookup.getOrThrow(Noises.SPAGHETTI_3D_1)), // initialDensityWithoutJaggedness
+                DensityFunctions.blendDensity(GCDensityFunctions.getFunction(densityLookup, GCDensityFunctions.Mars.FINAL_DENSITY)), // finalDensity
                 DensityFunctions.zero(), // veinToggle
                 DensityFunctions.zero(), // veinRidged
                 DensityFunctions.zero()  // veinGap
