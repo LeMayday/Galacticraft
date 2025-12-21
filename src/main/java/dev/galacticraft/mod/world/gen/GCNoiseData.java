@@ -33,6 +33,10 @@ public class GCNoiseData {
     public static final ResourceKey<NormalNoise.NoiseParameters> BASALT_MARE = createKey("moon/basalt_mare");
     public static final ResourceKey<NormalNoise.NoiseParameters> BASALT_MARE_HEIGHT = createKey("moon/basalt_mare_height");
 
+    public static final ResourceKey<NormalNoise.NoiseParameters> MARS_HIGHLAND = createKey("mars/mars_highland");
+    public static final ResourceKey<NormalNoise.NoiseParameters> MARS_LOWLAND = createKey("mars/mars_lowland");
+    public static final ResourceKey<NormalNoise.NoiseParameters> CERBERUS_FLOWS = createKey("mars/cerberus_flows");
+
     private static ResourceKey<NormalNoise.NoiseParameters> createKey(String id) {
         return ResourceKey.create(Registries.NOISE, Constant.id(id));
     }
@@ -41,6 +45,8 @@ public class GCNoiseData {
 //        register(context, EROSION, -11, 1, 1, 0, 1, 1);
 //        register(context, BASALT_MARE, 5, 0, 0.1, 0.2, 0.1, 0, 0, 0, 0);
 //        register(context, BASALT_MARE_HEIGHT, -12, 0.3);
+        register(context, MARS_HIGHLAND, -8, 4, 3, 2, 1, 0.5);
+        register(context, MARS_LOWLAND, -9, 1, 0.5, 0.25, 0.2, 0.1);
     }
 
     private static void register(

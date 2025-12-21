@@ -33,14 +33,14 @@ import org.jetbrains.annotations.NotNull;
 
 public class MarsSurfaceRules {
     private static final SurfaceRules.RuleSource BEDROCK = block(Blocks.BEDROCK);
-    public static final SurfaceRules.RuleSource HARD_ROCK = block(GCBlocks.HARD_VENUS_ROCK);
+    public static final SurfaceRules.RuleSource HARD_ROCK = block(GCBlocks.MARS_SURFACE_ROCK);
 
     public static final SurfaceRules.RuleSource MARS = createDefaultRule();
 
     public static @NotNull SurfaceRules.RuleSource createDefaultRule() {
         return SurfaceRules.sequence(
                 SurfaceRules.ifTrue(
-                        SurfaceRules.isBiome(GCBiomes.Venus.VENUS_MOUNTAIN, GCBiomes.Venus.VENUS_FLAT),
+                        SurfaceRules.isBiome(GCBiomes.Mars.MARS_HIGHLAND, GCBiomes.Mars.MARS_LOWLAND),
                         HARD_ROCK
                 ),
                 SurfaceRules.ifTrue(SurfaceRules.verticalGradient("bedrock_floor", VerticalAnchor.bottom(), VerticalAnchor.aboveBottom(5)), BEDROCK)

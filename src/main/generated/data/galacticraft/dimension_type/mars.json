@@ -7,7 +7,7 @@
   "has_raids": false,
   "has_skylight": true,
   "height": 384,
-  "infiniburn": "#galacticraft:infiniburn_venus",
+  "infiniburn": "#galacticraft:infiniburn_mars",
   "logical_height": 384,
   "min_y": -32,
   "monster_spawn_block_light_limit": 0,

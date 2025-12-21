@@ -45,6 +45,7 @@ import java.util.function.Function;
 public class GCMultiNoiseBiomeSourceParameterLists {
     private static final Parameter FULL_RANGE = Parameter.span(-1.0F, 1.0F);
 
+    private static final Parameter OCEAN_CONTINENTALNESS = Parameter.span(-0.455F, -0.19F);
     private static final Parameter RIVER_CONTINENTALNESS = Parameter.span(-0.11F, 0.55F);
     private static final Parameter SHORE_CONTINENTALNESS = Parameter.span(-0.19F, -0.11F);
     private static final Parameter NEAR_INLAND_CONTINENTALNESS = Parameter.span(-0.11F, 0.03F);
@@ -150,19 +151,19 @@ public class GCMultiNoiseBiomeSourceParameterLists {
     private static <T> Climate.@NotNull ParameterList<T> generateMars(Function<ResourceKey<Biome>, T> biomeRegistry) {
         ImmutableList.Builder<Pair<Climate.ParameterPoint, T>> builder = ImmutableList.builder();
         writeBiomeParameters(builder::add,
-                HOT, // hot to prevent snow
+                COLD, // hot to prevent snow
                 DRY,
-                Parameter.span(SHORE_CONTINENTALNESS, MID_INLAND_CONTINENTALNESS),
-                MIN_EROSION,
-                WEIRDNESS_H_MIXED,
+                Parameter.span(NEAR_INLAND_CONTINENTALNESS, MID_INLAND_CONTINENTALNESS),
+                MOSTLY_ERODED,
+                WEIRDNESS_H_MOUNTAINS,
                 0.0F,
                 biomeRegistry.apply(GCBiomes.Mars.MARS_HIGHLAND));
         writeBiomeParameters(builder::add,
-                HOT,
+                COLD,
                 DRY,
-                Parameter.span(SHORE_CONTINENTALNESS, MID_INLAND_CONTINENTALNESS),
-                MIN_EROSION,
-                WEIRDNESS_L_MIXED,
+                Parameter.span(OCEAN_CONTINENTALNESS, SHORE_CONTINENTALNESS),
+                SOMEWHAT_ERODED,
+                WEIRDNESS_RIVER,
                 0.0F,
                 biomeRegistry.apply(GCBiomes.Mars.MARS_LOWLAND));
 

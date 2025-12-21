@@ -1,7 +1,7 @@
 {
   "aquifers_enabled": false,
   "default_block": {
-    "Name": "galacticraft:hard_venus_rock"
+    "Name": "galacticraft:mars_sub_surface_rock"
   },
   "default_fluid": {
     "Name": "minecraft:air"
@@ -16,7 +16,7 @@
   },
   "noise_router": {
     "barrier": 0.0,
-    "continents": 0.0,
+    "continents": "galacticraft:mars/continentalness",
     "depth": 0.0,
     "erosion": 0.0,
     "final_density": {
@@ -25,12 +25,7 @@
     },
     "fluid_level_floodedness": 0.0,
     "fluid_level_spread": 0.0,
-    "initial_density_without_jaggedness": {
-      "type": "minecraft:noise",
-      "noise": "minecraft:spaghetti_3d_1",
-      "xz_scale": 1.0,
-      "y_scale": 1.0
-    },
+    "initial_density_without_jaggedness": 0.0,
     "lava": 0.0,
     "ridges": 0.0,
     "temperature": 0.0,
@@ -99,14 +94,14 @@
         "if_true": {
           "type": "minecraft:biome",
           "biome_is": [
-            "galacticraft:venus_mountain",
-            "galacticraft:venus_flat"
+            "galacticraft:mars_highland",
+            "galacticraft:mars_lowland"
           ]
         },
         "then_run": {
           "type": "minecraft:block",
           "result_state": {
-            "Name": "galacticraft:hard_venus_rock"
+            "Name": "galacticraft:mars_surface_rock"
           }
         }
       },

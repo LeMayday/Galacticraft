@@ -65,7 +65,7 @@ public class GCNoiseGeneratorSettings {
 
         context.register(MARS, new NoiseGeneratorSettings(
                 NoiseSettings.create(-32, 256, 1, 2),
-                GCBlocks.HARD_VENUS_ROCK.defaultBlockState(),
+                GCBlocks.MARS_SUB_SURFACE_ROCK.defaultBlockState(),
                 Blocks.AIR.defaultBlockState(),
                 GCNoiseGeneratorSettings.mars(densityLookup, noiseLookup),
                 MarsSurfaceRules.MARS,
@@ -151,6 +151,8 @@ public class GCNoiseGeneratorSettings {
     }
 
     public static NoiseRouter mars(HolderGetter<DensityFunction> densityLookup, HolderGetter<NormalNoise.NoiseParameters> noiseLookup) {
+        DensityFunction shiftX = GCDensityFunctions.getFunction(densityLookup, NoiseRouterData.SHIFT_X);
+        DensityFunction shiftZ = GCDensityFunctions.getFunction(densityLookup, NoiseRouterData.SHIFT_Z);
         return new NoiseRouter(
                 DensityFunctions.zero(), // barrierNoise
                 DensityFunctions.zero(), // fluidLevelFloodednessNoise
@@ -158,11 +160,11 @@ public class GCNoiseGeneratorSettings {
                 DensityFunctions.zero(), // lavaNoise
                 DensityFunctions.zero(), // temperature
                 DensityFunctions.zero(), // vegetation
-                DensityFunctions.zero(), // continents
+                GCDensityFunctions.getFunction(densityLookup, GCDensityFunctions.Mars.CONTINENTALNESS), // continents
                 DensityFunctions.zero(), // erosion
                 DensityFunctions.zero(), // depth
                 DensityFunctions.zero(), // ridges
-                DensityFunctions.noise(noiseLookup.getOrThrow(Noises.SPAGHETTI_3D_1)), // initialDensityWithoutJaggedness
+                DensityFunctions.zero(), // initialDensityWithoutJaggedness
                 DensityFunctions.blendDensity(GCDensityFunctions.getFunction(densityLookup, GCDensityFunctions.Mars.FINAL_DENSITY)), // finalDensity
                 DensityFunctions.zero(), // veinToggle
                 DensityFunctions.zero(), // veinRidged

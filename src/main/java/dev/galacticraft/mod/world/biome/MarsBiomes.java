@@ -59,7 +59,7 @@ public class MarsBiomes {
         return new Biome.BiomeBuilder()
                 .mobSpawnSettings(spawnBuilder.build())
                 .hasPrecipitation(false)
-                .temperature(2.0F) // temp is hot to prevent snow
+                .temperature(-0.7F) // temp is hot to prevent snow
                 .downfall(0.0F)
                 .specialEffects(specialEffects.build())
                 .generationSettings(generation.build())
