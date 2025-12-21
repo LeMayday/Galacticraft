@@ -35,6 +35,7 @@ public class GCBlockTags {
     public static final TagKey<Block> FOOTPRINTS = galacticraftTag("footprints");
 
     public static final TagKey<Block> INFINIBURN_MOON = galacticraftTag("infiniburn_moon");
+    public static final TagKey<Block> INFINIBURN_MARS = galacticraftTag("infiniburn_mars");
     public static final TagKey<Block> INFINIBURN_VENUS = galacticraftTag("infiniburn_venus");
     public static final TagKey<Block> INFINIBURN_ASTEROID = galacticraftTag("infiniburn_asteroid");
     public static final TagKey<Block> INFINIBURN_SATELLITE = galacticraftTag("infiniburn_satellite");

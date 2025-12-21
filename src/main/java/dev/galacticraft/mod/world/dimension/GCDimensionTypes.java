@@ -71,7 +71,7 @@ public class GCDimensionTypes {
                 -32, // minY
                 384, // height
                 384, // logicalHeight
-                GCBlockTags.INFINIBURN_VENUS, // infiniburn TODO: CHANGE TO MARS
+                GCBlockTags.INFINIBURN_MARS, // infiniburn
                 Constant.id("mars"), // effectsLocation // fixme
                 0.1F, // ambientLight
                 new DimensionType.MonsterSettings(false, false, UniformInt.of(0, 7), 0)
