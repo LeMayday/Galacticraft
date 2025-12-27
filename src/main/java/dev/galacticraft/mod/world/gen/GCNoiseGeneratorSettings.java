@@ -158,12 +158,12 @@ public class GCNoiseGeneratorSettings {
                 DensityFunctions.zero(), // fluidLevelFloodednessNoise
                 DensityFunctions.zero(), // fluidLevelSpreadNoise
                 DensityFunctions.zero(), // lavaNoise
-                DensityFunctions.zero(), // temperature
+                GCDensityFunctions.getFunction(densityLookup, GCDensityFunctions.Mars.TEMPERATURE), // temperature
                 DensityFunctions.zero(), // vegetation
                 GCDensityFunctions.getFunction(densityLookup, GCDensityFunctions.Mars.CONTINENTALNESS), // continents
-                DensityFunctions.zero(), // erosion
+                GCDensityFunctions.getFunction(densityLookup, GCDensityFunctions.Mars.EROSION), // erosion
                 DensityFunctions.zero(), // depth
-                DensityFunctions.zero(), // ridges
+                GCDensityFunctions.getFunction(densityLookup, GCDensityFunctions.Mars.WEIRDNESS), // ridges
                 DensityFunctions.zero(), // initialDensityWithoutJaggedness
                 DensityFunctions.blendDensity(GCDensityFunctions.getFunction(densityLookup, GCDensityFunctions.Mars.FINAL_DENSITY)), // finalDensity
                 DensityFunctions.zero(), // veinToggle
