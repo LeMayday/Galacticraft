@@ -22,16 +22,22 @@
 
 package dev.galacticraft.mod.world.gen;
 
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.galacticraft.mod.Constant;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.data.worldgen.BootstrapContext;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.KeyDispatchDataCodec;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.levelgen.DensityFunction;
 import net.minecraft.world.level.levelgen.DensityFunctions;
 import net.minecraft.world.level.levelgen.NoiseRouterData;
 import net.minecraft.world.level.levelgen.Noises;
 import net.minecraft.world.level.levelgen.synth.BlendedNoise;
+import org.jetbrains.annotations.NotNull;
 
 public class GCDensityFunctions {
     public static final ResourceKey<DensityFunction> NOODLES = createKey("caves/noodles");
@@ -214,5 +220,56 @@ public class GCDensityFunctions {
 
     public static DensityFunction getFunction(HolderGetter<DensityFunction> densityFunctions, ResourceKey<DensityFunction> key) {
         return new DensityFunctions.HolderHolder(densityFunctions.getOrThrow(key));
+    }
+
+    public record CircularDensityFunction(int radius, int nominalRadius, int xCenter, int zCenter) implements DensityFunction.SimpleFunction {
+        /*
+        DensityFunction that is a perfect circle with noise starting at 0 at the edge and reaching 1 at nominalRadius
+        Nominal radius can be used to set where value exceeds 1 to add things like central peaks for craters (perhaps 150 is a good value?)
+        */
+        private static final MapCodec<CircularDensityFunction> DATA_CODEC = RecordCodecBuilder.mapCodec(
+                instance -> instance.group(
+                                Codec.INT.fieldOf("radius").forGetter(CircularDensityFunction::radius),
+                                Codec.INT.fieldOf("nominalRadius").forGetter(CircularDensityFunction::nominalRadius),
+                                Codec.INT.fieldOf("xCenter").forGetter(CircularDensityFunction::xCenter),
+                                Codec.INT.fieldOf("zCenter").forGetter(CircularDensityFunction::zCenter)
+                        )
+                        .apply(instance, CircularDensityFunction::new)
+        );
+        public static final KeyDispatchDataCodec<CircularDensityFunction> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
+
+        public CircularDensityFunction {
+            if (radius < 0) {
+                throw new IllegalArgumentException("Inputs must be non-negative.");
+            }
+        }
+
+        private float getNoiseValue(int x, int z) {
+            x -= xCenter;
+            z -= zCenter;
+            float currR = Mth.sqrt(x*x + z*z);
+            float noiseHeight = (this.radius - currR) / nominalRadius;
+            return Math.max(noiseHeight, 0.0F);
+        }
+
+        @Override
+        public double compute(DensityFunction.FunctionContext context) {
+            return getNoiseValue(context.blockX(), context.blockZ());
+        }
+
+        @Override
+        public double minValue() {
+            return 0.0;
+        }
+
+        @Override
+        public double maxValue() {
+            return (double) nominalRadius / radius;
+        }
+
+        @Override
+        public @NotNull KeyDispatchDataCodec<? extends DensityFunction> codec() {
+            return CODEC;
+        }
     }
 }
