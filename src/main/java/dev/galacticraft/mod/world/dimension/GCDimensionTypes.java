@@ -69,8 +69,8 @@ public class GCDimensionTypes {
                 true, // bedWorks (doesn't explode, we can cancel working later)
                 false, // respawnAnchorWorks (doesn't explode, we can cancel working later)
                 -32, // minY
-                384, // height
-                384, // logicalHeight
+                320, // height
+                288, // logicalHeight
                 GCBlockTags.INFINIBURN_MARS, // infiniburn
                 Constant.id("mars"), // effectsLocation // fixme
                 0.1F, // ambientLight
