@@ -32,10 +32,7 @@ import net.minecraft.data.worldgen.BootstrapContext;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.KeyDispatchDataCodec;
 import net.minecraft.util.Mth;
-import net.minecraft.world.level.levelgen.DensityFunction;
-import net.minecraft.world.level.levelgen.DensityFunctions;
-import net.minecraft.world.level.levelgen.NoiseRouterData;
-import net.minecraft.world.level.levelgen.Noises;
+import net.minecraft.world.level.levelgen.*;
 import net.minecraft.world.level.levelgen.blending.Blender;
 import net.minecraft.world.level.levelgen.synth.BlendedNoise;
 import org.jetbrains.annotations.NotNull;
@@ -223,6 +220,35 @@ public class GCDensityFunctions {
         return new DensityFunctions.HolderHolder(densityFunctions.getOrThrow(key));
     }
 
+
+    private static DensityFunction.FunctionContext moveFunctionContextTo(DensityFunction.FunctionContext context, int x, int y, int z) {
+        return new DensityFunction.FunctionContext() {
+            @Override
+            public int blockX() {
+                return x;
+            }
+
+            @Override
+            public int blockY() {
+                return y;
+            }
+
+            @Override
+            public int blockZ() {
+                return z;
+            }
+
+            @Override
+            public @NotNull Blender getBlender() {
+                return context.getBlender();
+            }
+        };
+    }
+
+    private static DensityFunction.FunctionContext centerFunctionContextAt(DensityFunction.FunctionContext context, int xCenter, int yCenter, int zCenter) {
+        return moveFunctionContextTo(context, context.blockX() - xCenter, context.blockY() - yCenter, context.blockZ() - zCenter);
+    }
+
     public record PlacedDensityFunction(DensityFunction source, int xCenter, int zCenter) implements DensityFunction {
 
         private static final MapCodec<PlacedDensityFunction> DATA_CODEC = RecordCodecBuilder.mapCodec(
@@ -237,29 +263,7 @@ public class GCDensityFunctions {
 
         @Override
         public double compute(FunctionContext context) {
-            int x = context.blockX() - xCenter;
-            int z = context.blockZ() - zCenter;
-            return source.compute(new FunctionContext() {
-                @Override
-                public int blockX() {
-                    return x;
-                }
-
-                @Override
-                public int blockY() {
-                    return context.blockY();
-                }
-
-                @Override
-                public int blockZ() {
-                    return z;
-                }
-
-                @Override
-                public @NotNull Blender getBlender() {
-                    return context.getBlender();
-                }
-            });
+            return source.compute(centerFunctionContextAt(context, xCenter, 0, zCenter));
         }
 
         @Override
@@ -306,19 +310,20 @@ public class GCDensityFunctions {
         );
         public static final KeyDispatchDataCodec<CircularDensityFunction> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
 
-        public CircularDensityFunction {
+        public static double computeDensity(FunctionContext context, int radius, int nominalRadius) {
             if (radius < 0 || nominalRadius < 0) {
                 throw new IllegalArgumentException("Radius inputs must be non-negative.");
             }
-        }
-
-        @Override
-        public double compute(DensityFunction.FunctionContext context) {
             int x = context.blockX();
             int z = context.blockZ();
             float currR = Mth.sqrt(x*x + z*z);
-            float noiseHeight = (this.radius - currR) / nominalRadius;
+            float noiseHeight = (radius - currR) / nominalRadius;
             return Math.max(noiseHeight, 0.0F);
+        }
+
+        @Override
+        public double compute(FunctionContext context) {
+            return computeDensity(context, this.radius, this.nominalRadius);
         }
 
         @Override
