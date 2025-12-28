@@ -32,6 +32,8 @@ import net.minecraft.data.worldgen.BootstrapContext;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.KeyDispatchDataCodec;
 import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.levelgen.*;
 import net.minecraft.world.level.levelgen.blending.Blender;
 import net.minecraft.world.level.levelgen.synth.BlendedNoise;
@@ -334,6 +336,121 @@ public class GCDensityFunctions {
         @Override
         public double maxValue() {
             return (double) nominalRadius / radius;
+        }
+
+        @Override
+        public @NotNull KeyDispatchDataCodec<? extends DensityFunction> codec() {
+            return CODEC;
+        }
+    }
+
+    public record DistributedCircularDensityFunction(
+            DensityFunction thresholdFunction, int cellSize, int buffer, int radiusLower, int radiusUpper, int nomRadiusLower, int nomRadiusUpper
+    ) implements DensityFunction {
+        /*
+        To ensure repeatability, CircularDensityFunction placement is determined by dividing the world into square cells. Each cell has a unique coordinate that
+        is used to generate a seed for a RandomSource. Placement of the CircularDensityFunction within the cell is randomized based on the seed. The buffer ensures
+        a distance between the center and the cell boundary. Final placement is conditional on whether the value of thresholdFunction is positive at that point.
+         */
+        public DistributedCircularDensityFunction {
+            if (cellSize < 0 || buffer < 0 || radiusUpper < 0 || radiusLower < 0 || nomRadiusUpper < 0 || nomRadiusLower < 0) {
+                throw new IllegalArgumentException("Integer inputs must be non-negative.");
+            }
+            if (buffer >= cellSize/2) {
+                throw new IllegalArgumentException("Buffer must be smaller than cellSize/2");
+            }
+            if (radiusUpper > cellSize) {
+                throw new IllegalArgumentException("Upper bound on radius must be no larger than cell size.");
+            }
+            if (radiusUpper < radiusLower || nomRadiusUpper < nomRadiusLower) {
+                throw new IllegalArgumentException("Upper bounds cannot be smaller than lower bounds.");
+            }
+        }
+
+        private static final MapCodec<DistributedCircularDensityFunction> DATA_CODEC = RecordCodecBuilder.mapCodec(
+                instance -> instance.group(
+                                DensityFunction.HOLDER_HELPER_CODEC.fieldOf("threshold_function").forGetter(DistributedCircularDensityFunction::thresholdFunction),
+                                Codec.INT.fieldOf("cell_size").forGetter(DistributedCircularDensityFunction::cellSize),
+                                Codec.INT.fieldOf("buffer").forGetter(DistributedCircularDensityFunction::buffer),
+                                Codec.INT.fieldOf("radius_lower").forGetter(DistributedCircularDensityFunction::radiusLower),
+                                Codec.INT.fieldOf("radius_upper").forGetter(DistributedCircularDensityFunction::radiusUpper),
+                                Codec.INT.fieldOf("nom_radius_lower").forGetter(DistributedCircularDensityFunction::nomRadiusLower),
+                                Codec.INT.fieldOf("nom_radius_upper").forGetter(DistributedCircularDensityFunction::nomRadiusUpper)
+                        )
+                        .apply(instance, DistributedCircularDensityFunction::new)
+        );
+        public static final KeyDispatchDataCodec<DistributedCircularDensityFunction> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
+
+        private static long getSeedAtPos(int x, int z) {
+            return ChunkPos.hash(x, z);     // idk if maybe a different hash function might be better? Maybe throw it into an LCG?
+        }
+
+        private static RandomSource getRandomSource(long seed) {
+            return new XoroshiroRandomSource(seed);
+        }
+
+        private static double processContributions(double[] contributions) {
+            double result = 0;
+            for (double c : contributions) {
+                result = Math.max(result, c);   // take max of contributions
+//                result += c;                    // add contributions
+            }
+            return result;
+        }
+
+        @Override
+        public double compute(FunctionContext context) {
+            double[] contributions = new double[9];
+            int cellX = Math.floorDiv(context.blockX(), cellSize);     // need consistent floor operation for cells around origin to be unique
+            int cellZ = Math.floorDiv(context.blockZ(), cellSize);
+            int counter = 0;
+            for (int xc = -1; xc <= 1; xc++) {          // density is determined also by contributions from neighboring cells
+                for (int zc = -1; zc <= 1; zc++) {
+                    /*
+                    Within each cell in 3x3 grid, determine where the density function locations should be and then process contributions.
+                     */
+                    RandomSource random = getRandomSource(getSeedAtPos(cellX + xc, cellZ + zc));
+                    int xCenter = (cellX + xc) * cellSize + random.nextInt(buffer, cellSize - buffer);
+                    int zCenter = (cellZ + zc) * cellSize + random.nextInt(buffer, cellSize - buffer);
+                    if (this.thresholdFunction.compute(moveFunctionContextTo(context, xCenter, context.blockY(), zCenter)) > 0) {   // look at thresholdFunction at proposed placement location
+                        int radius = radiusLower == radiusUpper ? radiusLower : random.nextInt(radiusLower, radiusUpper);
+                        int nomRadius = nomRadiusLower == nomRadiusUpper ? nomRadiusLower : random.nextInt(nomRadiusLower, nomRadiusUpper);
+                        double result = CircularDensityFunction.computeDensity(
+                                centerFunctionContextAt(context, xCenter, 0, zCenter), radius, nomRadius
+                        );
+                        contributions[counter] = result;
+                    } else {
+                        contributions[counter] = 0;
+                    }
+                    counter++;
+                }
+            }
+            return processContributions(contributions);
+        }
+
+        @Override
+        public void fillArray(double[] densities, ContextProvider applier) {
+            for (int i = 0; i < densities.length; i++) {
+                densities[i] = this.compute(applier.forIndex(i));
+            }
+        }
+
+        @Override
+        public @NotNull DensityFunction mapAll(Visitor visitor) {
+            return visitor.apply(
+                    new DistributedCircularDensityFunction(
+                            this.thresholdFunction.mapAll(visitor), this.cellSize, this.buffer, this.radiusLower, this.radiusUpper, this.nomRadiusLower, this.nomRadiusUpper)
+            );
+        }
+
+        @Override
+        public double minValue() {
+            return 0.0;
+        }
+
+        @Override
+        public double maxValue() {
+            return (double) nomRadiusUpper / radiusLower;
         }
 
         @Override
