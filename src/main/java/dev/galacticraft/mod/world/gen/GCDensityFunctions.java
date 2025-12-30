@@ -407,7 +407,7 @@ public class GCDensityFunctions {
     }
 
     public record DistributedCircularDensityFunction(
-            DensityFunction thresholdFunction, double threshold, int cellSize, int buffer, int radiusLower, int radiusUpper, int nomRadiusLower, int nomRadiusUpper
+            DensityFunction thresholdFunction, double threshold, int cellSizeExp, int buffer, int radiusLower, int radiusUpper, int nomRadiusLower, int nomRadiusUpper
     ) implements DensityFunction {
         /*
         To ensure repeatability, CircularDensityFunction placement is determined by dividing the world into square cells. Each cell has a unique coordinate that
@@ -415,13 +415,13 @@ public class GCDensityFunctions {
         a distance between the center and the cell boundary. Final placement is conditional on whether the value of thresholdFunction is positive at that point.
          */
         public DistributedCircularDensityFunction {
-            if (cellSize < 0 || buffer < 0 || radiusUpper < 0 || radiusLower < 0 || nomRadiusUpper < 0 || nomRadiusLower < 0) {
+            if (cellSizeExp < 0 || buffer < 0 || radiusUpper < 0 || radiusLower < 0 || nomRadiusUpper < 0 || nomRadiusLower < 0) {
                 throw new IllegalArgumentException("Integer inputs must be non-negative.");
             }
-            if (buffer >= cellSize/2) {
+            if (buffer >= 1 << cellSizeExp - 1) {
                 throw new IllegalArgumentException("Buffer must be smaller than cellSize/2");
             }
-            if (radiusUpper > cellSize) {
+            if (radiusUpper > 1 << cellSizeExp) {
                 throw new IllegalArgumentException("Upper bound on radius must be no larger than cell size.");
             }
             if (radiusUpper < radiusLower || nomRadiusUpper < nomRadiusLower) {
@@ -436,7 +436,7 @@ public class GCDensityFunctions {
                 instance -> instance.group(
                                 DensityFunction.HOLDER_HELPER_CODEC.fieldOf("threshold_function").forGetter(DistributedCircularDensityFunction::thresholdFunction),
                                 Codec.DOUBLE.fieldOf("threshold").forGetter(DistributedCircularDensityFunction::threshold),
-                                Codec.INT.fieldOf("cell_size").forGetter(DistributedCircularDensityFunction::cellSize),
+                                Codec.INT.fieldOf("cell_size_exp").forGetter(DistributedCircularDensityFunction::cellSizeExp),
                                 Codec.INT.fieldOf("buffer").forGetter(DistributedCircularDensityFunction::buffer),
                                 Codec.INT.fieldOf("radius_lower").forGetter(DistributedCircularDensityFunction::radiusLower),
                                 Codec.INT.fieldOf("radius_upper").forGetter(DistributedCircularDensityFunction::radiusUpper),
@@ -489,7 +489,7 @@ public class GCDensityFunctions {
                 return false;   // can't evaluate at center of axis, so don't skip
             }
             final int distToCellThreshold = radiusUpper - buffer;
-            int cellBoundaryCoord = cellIdx == 1 ? (mainCellPos + 1) * cellSize : mainCellPos * cellSize - 1;   // coordinate of cell boundary
+            int cellBoundaryCoord = cellIdx == 1 ? mainCellPos + 1 << cellSizeExp : (mainCellPos << cellSizeExp) - 1;   // coordinate of cell boundary
             return Mth.abs(blockPos - cellBoundaryCoord) >= distToCellThreshold;    // if more than some dist away, skip
         }
 
@@ -497,8 +497,8 @@ public class GCDensityFunctions {
         public double compute(FunctionContext context) {
             final int x = context.blockX();
             final int z = context.blockZ();
-            final int cellX = Math.floorDiv(x, cellSize);       // need consistent floor operation for cells around origin to be unique
-            final int cellZ = Math.floorDiv(z, cellSize);
+            final int cellX = x >> cellSizeExp;                 // need consistent floor operation for cells around origin to be unique
+            final int cellZ = z >> cellSizeExp;
             final int radiusUpperSq = radiusUpper * radiusUpper;
             double result = 0;
             for (int xc = -1; xc <= 1; xc++) {                  // for each block, determine potential contributions from eight neighboring cells
@@ -508,9 +508,9 @@ public class GCDensityFunctions {
                     int currCellZ = cellZ + zc;
                     if (skipCell(cellZ, zc, z)) continue;
                     int seed = (int) getSeedAtPos(currCellX, currCellZ);
-                    int xCenter = currCellX * cellSize + nextIntInRange(hash(seed ^ 0x12345), buffer, cellSize - buffer);
+                    int xCenter = (currCellX << cellSizeExp) + nextIntInRange(hash(seed ^ 0x12345), buffer, (1 << cellSizeExp) - buffer);
                     int dx = x - xCenter;
-                    int zCenter = currCellZ * cellSize + nextIntInRange(hash(seed ^ 0x6789A), buffer, cellSize - buffer);
+                    int zCenter = (currCellZ << cellSizeExp) + nextIntInRange(hash(seed ^ 0x6789A), buffer, (1 << cellSizeExp) - buffer);
                     int dz = z - zCenter;
                     int distFromCenterSq = dx * dx + dz * dz;
                     if (distFromCenterSq < radiusUpperSq) {    // if this block is farther than the largest radius away from a contribution from a neighboring cell, short circuit
@@ -538,7 +538,7 @@ public class GCDensityFunctions {
         public @NotNull DensityFunction mapAll(Visitor visitor) {
             return visitor.apply(
                     new DistributedCircularDensityFunction(
-                            this.thresholdFunction.mapAll(visitor), this.threshold, this.cellSize, this.buffer, this.radiusLower, this.radiusUpper, this.nomRadiusLower, this.nomRadiusUpper)
+                            this.thresholdFunction.mapAll(visitor), this.threshold, this.cellSizeExp, this.buffer, this.radiusLower, this.radiusUpper, this.nomRadiusLower, this.nomRadiusUpper)
             );
         }
 
