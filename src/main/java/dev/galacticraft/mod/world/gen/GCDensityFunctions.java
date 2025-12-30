@@ -450,7 +450,7 @@ public class GCDensityFunctions {
 
         @Override
         public double maxValue() {
-            return (double) nomRadiusUpper / radiusLower;
+            return (double) radiusUpper / nomRadiusLower;
         }
 
         @Override
