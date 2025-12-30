@@ -26,17 +26,17 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.galacticraft.mod.Constant;
+import net.minecraft.core.Holder;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.data.worldgen.BootstrapContext;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.util.KeyDispatchDataCodec;
-import net.minecraft.util.Mth;
-import net.minecraft.util.RandomSource;
+import net.minecraft.util.*;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.levelgen.*;
 import net.minecraft.world.level.levelgen.blending.Blender;
 import net.minecraft.world.level.levelgen.synth.BlendedNoise;
+import net.minecraft.world.level.levelgen.synth.NormalNoise;
 import org.jetbrains.annotations.NotNull;
 
 public class GCDensityFunctions {
@@ -336,6 +336,68 @@ public class GCDensityFunctions {
         @Override
         public double maxValue() {
             return (double) nominalRadius / radius;
+
+    public static AccessibleShiftedNoise2d makeAccessibleShiftedNoise2d(
+            Holder<NormalNoise.NoiseParameters> sourceNoise, double xzScale, Holder<NormalNoise.NoiseParameters> shiftNoise
+    ) {
+        return new AccessibleShiftedNoise2d(new DensityFunction.NoiseHolder(sourceNoise), xzScale, new DensityFunction.NoiseHolder(shiftNoise));
+    }
+
+    public record AccessibleShiftedNoise2d(DensityFunction.NoiseHolder source, double xzScale, DensityFunction.NoiseHolder shift) implements DensityFunction {
+        /*
+        See DensityFunctions.ShiftedNoise
+         */
+        private static final MapCodec<AccessibleShiftedNoise2d> DATA_CODEC = RecordCodecBuilder.mapCodec(
+                instance -> instance.group(
+                                NormalNoise.NoiseParameters.CODEC.fieldOf("source").forGetter(ths -> ths.source().noiseData()), // uses lambda function to get variable
+                                Codec.DOUBLE.fieldOf("xz_scale").forGetter(AccessibleShiftedNoise2d::xzScale),
+                                NormalNoise.NoiseParameters.CODEC.fieldOf("shift").forGetter(ths -> ths.shift().noiseData())
+                        )
+                        .apply(instance, GCDensityFunctions::makeAccessibleShiftedNoise2d)  // Google recommended storing the noiseData for the codec, so it has to be wrapped for the constructor
+        );
+        public static final KeyDispatchDataCodec<AccessibleShiftedNoise2d> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
+
+        private double computeShift(double x, double y, double z) {
+            /*
+            See DensityFunctions.ShiftNoise. ShiftA and ShiftB both pass compute calls through this.
+             */
+            return this.shift.getValue(x * 0.25, y * 0.25, z * 0.25) * 4.0;
+        }
+
+        public double computeAt(int x, int z) {
+            /*
+            See DensityFunctions.ShiftedNoise and ShiftA and ShiftB. As defined for shiftedNoise2d, shiftY and yScale are both 0.
+             */
+            double xSample = x * this.xzScale + computeShift(x, 0, z);
+            double zSample = z * this.xzScale + computeShift(z, x, 0);
+            return this.source.getValue(xSample, 0, zSample);
+        }
+
+        @Override
+        public double compute(FunctionContext context) {
+            return computeAt(context.blockX(), context.blockZ());
+        }
+
+        @Override
+        public void fillArray(double[] densities, ContextProvider applier) {
+            applier.fillAllDirectly(densities, this);
+        }
+
+        @Override
+        public @NotNull DensityFunction mapAll(Visitor visitor) {
+            return visitor.apply(
+                    new AccessibleShiftedNoise2d(visitor.visitNoise(this.source), this.xzScale, visitor.visitNoise(this.shift))
+            );
+        }
+
+        @Override
+        public double minValue() {
+            return -this.maxValue();
+        }
+
+        @Override
+        public double maxValue() {
+            return this.source.maxValue();
         }
 
         @Override
@@ -345,7 +407,7 @@ public class GCDensityFunctions {
     }
 
     public record DistributedCircularDensityFunction(
-            DensityFunction thresholdFunction, int cellSize, int buffer, int radiusLower, int radiusUpper, int nomRadiusLower, int nomRadiusUpper
+            DensityFunction thresholdFunction, double threshold, int cellSize, int buffer, int radiusLower, int radiusUpper, int nomRadiusLower, int nomRadiusUpper
     ) implements DensityFunction {
         /*
         To ensure repeatability, CircularDensityFunction placement is determined by dividing the world into square cells. Each cell has a unique coordinate that
@@ -365,11 +427,15 @@ public class GCDensityFunctions {
             if (radiusUpper < radiusLower || nomRadiusUpper < nomRadiusLower) {
                 throw new IllegalArgumentException("Upper bounds cannot be smaller than lower bounds.");
             }
+            if (!(thresholdFunction instanceof AccessibleShiftedNoise2d)) {
+                Constant.LOGGER.warn("Threshold function should be an instance of AccessibleShiftedNoise2d to take advantage of direct sampling. Performance will suffer.");
+            }
         }
 
         private static final MapCodec<DistributedCircularDensityFunction> DATA_CODEC = RecordCodecBuilder.mapCodec(
                 instance -> instance.group(
                                 DensityFunction.HOLDER_HELPER_CODEC.fieldOf("threshold_function").forGetter(DistributedCircularDensityFunction::thresholdFunction),
+                                Codec.DOUBLE.fieldOf("threshold").forGetter(DistributedCircularDensityFunction::threshold),
                                 Codec.INT.fieldOf("cell_size").forGetter(DistributedCircularDensityFunction::cellSize),
                                 Codec.INT.fieldOf("buffer").forGetter(DistributedCircularDensityFunction::buffer),
                                 Codec.INT.fieldOf("radius_lower").forGetter(DistributedCircularDensityFunction::radiusLower),
@@ -382,64 +448,99 @@ public class GCDensityFunctions {
         public static final KeyDispatchDataCodec<DistributedCircularDensityFunction> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
 
         private static long getSeedAtPos(int x, int z) {
-            return ChunkPos.hash(x, z);     // idk if maybe a different hash function might be better? Maybe throw it into an LCG?
+            return ChunkPos.hash(x, z);
         }
 
-        private static RandomSource getRandomSource(long seed) {
-            return new XoroshiroRandomSource(seed);
+        private static int hash(int x) {
+            /*
+            See https://github.com/skeeto/hash-prospector
+             */
+            x ^= x >>> 16;
+            x *= 0x7feb352d;
+            x ^= x >>> 15;
+            x *= 0x846ca68b;
+            x ^= x >>> 16;
+            return x;
         }
 
-        private static double processContributions(double[] contributions) {
+        private static int nextIntInRange(int hash, int min, int max) {
+            int range = max - min;
+            if (range <= 0) {
+                throw new IllegalArgumentException("Max must be greater than min.");
+            }
+            long unsignedHash = Integer.toUnsignedLong(hash);   // treat this as a fraction from 0 to 2^32
+            int offset = (int)((unsignedHash * range) >>> 32);  // multiply fraction by range and divide by 2^32
+            return min + offset;
+        }
+
+        @Override
+        public double compute(FunctionContext context) {
+            final int x = context.blockX();
+            final int z = context.blockZ();
+            final int cellX = Math.floorDiv(x, cellSize);       // need consistent floor operation for cells around origin to be unique
+            final int cellZ = Math.floorDiv(z, cellSize);
+            final int radiusUpperSq = radiusUpper * radiusUpper;
+            final int distToCellThreshold = radiusUpper - buffer;
             double result = 0;
-            for (double c : contributions) {
-                result = Math.max(result, c);   // take max of contributions
-//                result += c;                    // add contributions
+            for (int xc = -1; xc <= 1; xc++) {                  // for each block, determine potential contributions from eight neighboring cells
+                int currCellX = cellX + xc;
+                if (xc != 0) {                                  // can only short circuit in x based on difference in x
+                    int cellBoundaryCoordX = xc == 1 ? currCellX * cellSize : cellX * cellSize - 1;
+                    if (Mth.abs(x - cellBoundaryCoordX) >= distToCellThreshold) {       // if more than radiusUpper from cell boundary, short circuit
+                        continue;
+                    }
+                }
+                for (int zc = -1; zc <= 1; zc++) {      // Within each cell in 3x3 grid, determine where the density function locations should be and then process contributions.
+                    int currCellZ = cellZ + zc;
+                    if (zc != 0) {
+                        int cellBoundaryCoordZ = zc == 1 ? currCellZ * cellSize : cellZ * cellSize - 1;
+                        if (Mth.abs(z - cellBoundaryCoordZ) >= distToCellThreshold) {   // if more than radiusUpper from cell boundary, short circuit
+                            continue;
+                        }
+                    }
+                    int seed = (int) getSeedAtPos(currCellX, currCellZ);
+                    int xCenter = currCellX * cellSize + nextIntInRange(hash(seed ^ 0x12345), buffer, cellSize - buffer);
+                    int dx = x - xCenter;
+                    int zCenter = currCellZ * cellSize + nextIntInRange(hash(seed ^ 0x6789A), buffer, cellSize - buffer);
+                    int dz = z - zCenter;
+                    int distFromCenterSq = dx * dx + dz * dz;
+                    if (distFromCenterSq < radiusUpperSq) {    // if this block is farther than the largest radius away from a contribution from a neighboring cell, short circuit
+                        if (this.thresholdFunction instanceof AccessibleShiftedNoise2d) {
+                            if ( ((AccessibleShiftedNoise2d)this.thresholdFunction).computeAt(xCenter, zCenter) > threshold ) {   // look at thresholdFunction at proposed placement location
+                                int radius = radiusLower == radiusUpper ? radiusLower :
+                                        nextIntInRange(hash(seed ^ 0xEDCBA), radiusLower, radiusUpper);
+                                if (distFromCenterSq < radius * radius) {   // if this block is father than radius away from the
+                                    int nomRadius = nomRadiusLower == nomRadiusUpper ? nomRadiusLower :
+                                            nextIntInRange(hash(seed ^ 0x98765), nomRadiusLower, nomRadiusUpper);
+                                    result = Math.max(result, (radius - Mth.sqrt(distFromCenterSq)) / nomRadius);
+                                }
+                            }
+                        }
+//                        if (this.thresholdFunction.compute(moveFunctionContextTo(context, xCenter, context.blockY(), zCenter)) > 0) {   // look at thresholdFunction at proposed placement location
+//                            int radius = radiusLower == radiusUpper ? radiusLower :
+//                                    nextIntInRange(hash(seed ^ 0xEDCBA), radiusLower, radiusUpper);
+//                            if (distFromCenterSq < radius * radius) {   // if this block is father than radius away from the
+//                                int nomRadius = nomRadiusLower == nomRadiusUpper ? nomRadiusLower :
+//                                        nextIntInRange(hash(seed ^ 0x98765), nomRadiusLower, nomRadiusUpper);
+//                                result = Math.max(result, (radius - Mth.sqrt(distFromCenterSq)) / nomRadius);
+//                            }
+//                        }
+                    }
+                }
             }
             return result;
         }
 
         @Override
-        public double compute(FunctionContext context) {
-            double[] contributions = new double[9];
-            int cellX = Math.floorDiv(context.blockX(), cellSize);     // need consistent floor operation for cells around origin to be unique
-            int cellZ = Math.floorDiv(context.blockZ(), cellSize);
-            int counter = 0;
-            for (int xc = -1; xc <= 1; xc++) {          // density is determined also by contributions from neighboring cells
-                for (int zc = -1; zc <= 1; zc++) {
-                    /*
-                    Within each cell in 3x3 grid, determine where the density function locations should be and then process contributions.
-                     */
-                    RandomSource random = getRandomSource(getSeedAtPos(cellX + xc, cellZ + zc));
-                    int xCenter = (cellX + xc) * cellSize + random.nextInt(buffer, cellSize - buffer);
-                    int zCenter = (cellZ + zc) * cellSize + random.nextInt(buffer, cellSize - buffer);
-                    if (this.thresholdFunction.compute(moveFunctionContextTo(context, xCenter, context.blockY(), zCenter)) > 0) {   // look at thresholdFunction at proposed placement location
-                        int radius = radiusLower == radiusUpper ? radiusLower : random.nextInt(radiusLower, radiusUpper);
-                        int nomRadius = nomRadiusLower == nomRadiusUpper ? nomRadiusLower : random.nextInt(nomRadiusLower, nomRadiusUpper);
-                        double result = CircularDensityFunction.computeDensity(
-                                centerFunctionContextAt(context, xCenter, 0, zCenter), radius, nomRadius
-                        );
-                        contributions[counter] = result;
-                    } else {
-                        contributions[counter] = 0;
-                    }
-                    counter++;
-                }
-            }
-            return processContributions(contributions);
-        }
-
-        @Override
         public void fillArray(double[] densities, ContextProvider applier) {
-            for (int i = 0; i < densities.length; i++) {
-                densities[i] = this.compute(applier.forIndex(i));
-            }
+            applier.fillAllDirectly(densities, this);
         }
 
         @Override
         public @NotNull DensityFunction mapAll(Visitor visitor) {
             return visitor.apply(
                     new DistributedCircularDensityFunction(
-                            this.thresholdFunction.mapAll(visitor), this.cellSize, this.buffer, this.radiusLower, this.radiusUpper, this.nomRadiusLower, this.nomRadiusUpper)
+                            this.thresholdFunction.mapAll(visitor), this.threshold, this.cellSize, this.buffer, this.radiusLower, this.radiusUpper, this.nomRadiusLower, this.nomRadiusUpper)
             );
         }
 

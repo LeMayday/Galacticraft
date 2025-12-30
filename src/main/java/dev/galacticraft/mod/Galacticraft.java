@@ -132,6 +132,10 @@ public class Galacticraft implements ModInitializer {
                 ResourceLocation.fromNamespaceAndPath(Constant.MOD_ID, "distributed_circular_density_function"),
                 GCDensityFunctions.DistributedCircularDensityFunction.CODEC.codec()
         );
+        Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE,
+                ResourceLocation.fromNamespaceAndPath(Constant.MOD_ID, "accessible_shifted_2d_noise"),
+                GCDensityFunctions.AccessibleShiftedNoise2d.CODEC.codec()
+        );
         Constant.LOGGER.info("Initialization complete. (Took {}ms).", System.currentTimeMillis() - startInitTime);
     }
 }
