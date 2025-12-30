@@ -473,6 +473,26 @@ public class GCDensityFunctions {
             return min + offset;
         }
 
+        private double computeDensity(int seed, int distFromCenterSq) {
+            int radius = radiusLower == radiusUpper ? radiusLower :
+                    nextIntInRange(hash(seed ^ 0xEDCBA), radiusLower, radiusUpper);
+            if (distFromCenterSq < radius * radius) {   // if this block is father than radius away from the
+                int nomRadius = nomRadiusLower == nomRadiusUpper ? nomRadiusLower :
+                        nextIntInRange(hash(seed ^ 0x98765), nomRadiusLower, nomRadiusUpper);
+                return (radius - Mth.sqrt(distFromCenterSq)) / nomRadius;
+            }
+            return 0;
+        }
+
+        private boolean skipCell(int mainCellPos, int cellIdx, int blockPos) {  // evaluates whether to skip cells along an axis
+            if (cellIdx == 0) {
+                return false;   // can't evaluate at center of axis, so don't skip
+            }
+            final int distToCellThreshold = radiusUpper - buffer;
+            int cellBoundaryCoord = cellIdx == 1 ? (mainCellPos + 1) * cellSize : mainCellPos * cellSize - 1;   // coordinate of cell boundary
+            return Mth.abs(blockPos - cellBoundaryCoord) >= distToCellThreshold;    // if more than some dist away, skip
+        }
+
         @Override
         public double compute(FunctionContext context) {
             final int x = context.blockX();
@@ -480,24 +500,13 @@ public class GCDensityFunctions {
             final int cellX = Math.floorDiv(x, cellSize);       // need consistent floor operation for cells around origin to be unique
             final int cellZ = Math.floorDiv(z, cellSize);
             final int radiusUpperSq = radiusUpper * radiusUpper;
-            final int distToCellThreshold = radiusUpper - buffer;
             double result = 0;
             for (int xc = -1; xc <= 1; xc++) {                  // for each block, determine potential contributions from eight neighboring cells
                 int currCellX = cellX + xc;
-                if (xc != 0) {                                  // can only short circuit in x based on difference in x
-                    int cellBoundaryCoordX = xc == 1 ? currCellX * cellSize : cellX * cellSize - 1;
-                    if (Mth.abs(x - cellBoundaryCoordX) >= distToCellThreshold) {       // if more than radiusUpper from cell boundary, short circuit
-                        continue;
-                    }
-                }
+                if (skipCell(cellX, xc, x)) continue;
                 for (int zc = -1; zc <= 1; zc++) {      // Within each cell in 3x3 grid, determine where the density function locations should be and then process contributions.
                     int currCellZ = cellZ + zc;
-                    if (zc != 0) {
-                        int cellBoundaryCoordZ = zc == 1 ? currCellZ * cellSize : cellZ * cellSize - 1;
-                        if (Mth.abs(z - cellBoundaryCoordZ) >= distToCellThreshold) {   // if more than radiusUpper from cell boundary, short circuit
-                            continue;
-                        }
-                    }
+                    if (skipCell(cellZ, zc, z)) continue;
                     int seed = (int) getSeedAtPos(currCellX, currCellZ);
                     int xCenter = currCellX * cellSize + nextIntInRange(hash(seed ^ 0x12345), buffer, cellSize - buffer);
                     int dx = x - xCenter;
@@ -507,24 +516,13 @@ public class GCDensityFunctions {
                     if (distFromCenterSq < radiusUpperSq) {    // if this block is farther than the largest radius away from a contribution from a neighboring cell, short circuit
                         if (this.thresholdFunction instanceof AccessibleShiftedNoise2d) {
                             if ( ((AccessibleShiftedNoise2d)this.thresholdFunction).computeAt(xCenter, zCenter) > threshold ) {   // look at thresholdFunction at proposed placement location
-                                int radius = radiusLower == radiusUpper ? radiusLower :
-                                        nextIntInRange(hash(seed ^ 0xEDCBA), radiusLower, radiusUpper);
-                                if (distFromCenterSq < radius * radius) {   // if this block is father than radius away from the
-                                    int nomRadius = nomRadiusLower == nomRadiusUpper ? nomRadiusLower :
-                                            nextIntInRange(hash(seed ^ 0x98765), nomRadiusLower, nomRadiusUpper);
-                                    result = Math.max(result, (radius - Mth.sqrt(distFromCenterSq)) / nomRadius);
-                                }
+                                result = Math.max(result, computeDensity(seed, distFromCenterSq));
+                            }
+                        } else {
+                            if (this.thresholdFunction.compute(moveFunctionContextTo(context, xCenter, context.blockY(), zCenter)) > threshold) {
+                                result = Math.max(result, computeDensity(seed, distFromCenterSq));
                             }
                         }
-//                        if (this.thresholdFunction.compute(moveFunctionContextTo(context, xCenter, context.blockY(), zCenter)) > 0) {   // look at thresholdFunction at proposed placement location
-//                            int radius = radiusLower == radiusUpper ? radiusLower :
-//                                    nextIntInRange(hash(seed ^ 0xEDCBA), radiusLower, radiusUpper);
-//                            if (distFromCenterSq < radius * radius) {   // if this block is father than radius away from the
-//                                int nomRadius = nomRadiusLower == nomRadiusUpper ? nomRadiusLower :
-//                                        nextIntInRange(hash(seed ^ 0x98765), nomRadiusLower, nomRadiusUpper);
-//                                result = Math.max(result, (radius - Mth.sqrt(distFromCenterSq)) / nomRadius);
-//                            }
-//                        }
                     }
                 }
             }
