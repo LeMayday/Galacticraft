@@ -437,7 +437,7 @@ public class GCDensityFunctions {
                                 Codec.INT.fieldOf("buffer").forGetter(df -> df.buffer),
                                 Codec.INT.fieldOf("radius_lower").forGetter(df -> df.radiusLower),
                                 Codec.INT.fieldOf("radius_upper").forGetter(df -> df.radiusUpper),
-                                Codec.INT.fieldOf("nom_radius_lower").forGetter(df -> Math.round(1F / df.invNomRadius))
+                                Codec.INT.fieldOf("nom_radius_lower").forGetter(df -> df.nomRadius)
                         )
                         .apply(instance, DistributedCircularDensityFunction::new)
         );
@@ -448,6 +448,7 @@ public class GCDensityFunctions {
         private final int buffer;
         private final int radiusLower;
         private final int radiusUpper;
+        private final int nomRadius;
         private final float invNomRadius;
 
         public DistributedCircularDensityFunction(
@@ -471,6 +472,7 @@ public class GCDensityFunctions {
             this.buffer = buffer;
             this.radiusLower = radiusLower;
             this.radiusUpper = radiusUpper;
+            this.nomRadius = nomRadius;
             this.invNomRadius = 1F / nomRadius;
         }
 
@@ -505,20 +507,22 @@ public class GCDensityFunctions {
             final int x = context.blockX();
             final int z = context.blockZ();
             final int distToCellThreshold = radiusUpper - buffer;
+            final int minCellX = (x - distToCellThreshold) >> cellSizeExp;  // Bit shift performs floorDiv, which is desired. The loop statements auto-skip cells if out of range.
+            final int maxCellX = (x + distToCellThreshold) >> cellSizeExp;
+            final int minCellZ = (z - distToCellThreshold) >> cellSizeExp;
+            final int maxCellZ = (z + distToCellThreshold) >> cellSizeExp;
             double result = 0;
             // Within each cell in 3x3 grid, determine where the density function locations should be and then process contributions.
-            // Bit shift performs floorDiv, which is desired. The loop statements auto-skip cells if out of range.
             int seed, xCenter, dx, zCenter, dz, distFromCenterSq, radius;
-            for (int currCellX = x - distToCellThreshold >> cellSizeExp; currCellX <= x + distToCellThreshold >> cellSizeExp; currCellX++) {
-                for (int currCellZ = z - distToCellThreshold >> cellSizeExp; currCellZ <= z + distToCellThreshold >> cellSizeExp; currCellZ++) {
+            for (int currCellX = minCellX; currCellX <= maxCellX; currCellX++) {
+                for (int currCellZ = minCellZ; currCellZ <= maxCellZ; currCellZ++) {
                     seed = (int) getSeedAtPos(currCellX, currCellZ);
                     xCenter = (currCellX << cellSizeExp) + nextIntInRange(hash(seed ^ 0x12345), buffer, (1 << cellSizeExp) - buffer);
                     dx = x - xCenter;
                     zCenter = (currCellZ << cellSizeExp) + nextIntInRange(hash(seed ^ 0x6789A), buffer, (1 << cellSizeExp) - buffer);
                     dz = z - zCenter;
                     distFromCenterSq = dx * dx + dz * dz;
-                    radius = radiusLower == radiusUpper ? radiusLower :
-                            nextIntInRange(hash(seed ^ 0xEDCBA), radiusLower, radiusUpper);
+                    radius = radiusLower == radiusUpper ? radiusLower : nextIntInRange(hash(seed ^ 0xEDCBA), radiusLower, radiusUpper);
                     if (distFromCenterSq >= radius * radius) continue;  // calculate radius for this cell, short circuit if current pos is farther
                     if (this.thresholdFunction.computeAt(xCenter, zCenter) > threshold) {   // look at thresholdFunction at proposed placement location
                         result = Math.max(result, (radius - Mth.sqrt(distFromCenterSq)) * invNomRadius);
@@ -537,8 +541,8 @@ public class GCDensityFunctions {
         public @NotNull DensityFunction mapAll(Visitor visitor) {
             return visitor.apply(
                     new DistributedCircularDensityFunction(
-                            (AccessibleShiftedNoise2d)this.thresholdFunction.mapAll(visitor),
-                            this.threshold, this.cellSizeExp, this.buffer, this.radiusLower, this.radiusUpper, Math.round(1F / invNomRadius))
+                            (AccessibleShiftedNoise2d)thresholdFunction.mapAll(visitor),
+                            threshold, cellSizeExp, buffer, radiusLower, radiusUpper, nomRadius)
             );
         }
 
