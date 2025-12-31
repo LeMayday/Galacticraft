@@ -247,10 +247,6 @@ public class GCDensityFunctions {
         };
     }
 
-    private static DensityFunction.FunctionContext centerFunctionContextAt(DensityFunction.FunctionContext context, int xCenter, int yCenter, int zCenter) {
-        return moveFunctionContextTo(context, context.blockX() - xCenter, context.blockY() - yCenter, context.blockZ() - zCenter);
-    }
-
     public record PlacedDensityFunction(DensityFunction source, int xCenter, int zCenter) implements DensityFunction {
 
         private static final MapCodec<PlacedDensityFunction> DATA_CODEC = RecordCodecBuilder.mapCodec(
@@ -262,6 +258,10 @@ public class GCDensityFunctions {
                         .apply(instance, PlacedDensityFunction::new)
         );
         public static final KeyDispatchDataCodec<PlacedDensityFunction> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
+
+        private static DensityFunction.FunctionContext centerFunctionContextAt(DensityFunction.FunctionContext context, int xCenter, int yCenter, int zCenter) {
+            return moveFunctionContextTo(context, context.blockX() - xCenter, context.blockY() - yCenter, context.blockZ() - zCenter);
+        }
 
         @Override
         public double compute(FunctionContext context) {
