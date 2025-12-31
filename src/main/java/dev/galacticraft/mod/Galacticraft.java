@@ -121,14 +121,6 @@ public class Galacticraft implements ModInitializer {
         GCSulfuricAcidHandlers.register();
         ResourceManagerHelper.get(PackType.SERVER_DATA).registerReloadListener(OxygenBlockDataManager.INSTANCE);
         Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE,
-                ResourceLocation.fromNamespaceAndPath(Constant.MOD_ID, "circular_density_function"),
-                GCDensityFunctions.CircularDensityFunction.CODEC.codec()
-        );
-        Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE,
-                ResourceLocation.fromNamespaceAndPath(Constant.MOD_ID, "placed_density_function"),
-                GCDensityFunctions.PlacedDensityFunction.CODEC.codec()
-        );
-        Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE,
                 ResourceLocation.fromNamespaceAndPath(Constant.MOD_ID, "distributed_circular_density_function"),
                 GCDensityFunctions.DistributedCircularDensityFunction.CODEC.codec()
         );
