@@ -356,6 +356,14 @@ public class GCDensityFunctions {
                         .apply(instance, GCDensityFunctions::makeAccessibleShiftedNoise2d)  // Google recommended storing the noiseData for the codec, so it has to be wrapped for the constructor
         );
         public static final KeyDispatchDataCodec<AccessibleShiftedNoise2d> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
+        public static final Codec<AccessibleShiftedNoise2d> SUBCLASS_CODEC = DensityFunction.HOLDER_HELPER_CODEC.xmap(
+                df -> {
+                    if (df instanceof DensityFunctions.HolderHolder holder) {   // Minecraft passes through a HolderHolder, which must be unwrapped first
+                        df = holder.function().value();
+                    }
+                    return (AccessibleShiftedNoise2d) df;},
+                df -> df
+        );
 
         private double computeShift(double x, double y, double z) {
             /*
@@ -407,7 +415,7 @@ public class GCDensityFunctions {
     }
 
     public record DistributedCircularDensityFunction(
-            DensityFunction thresholdFunction, double threshold, int cellSizeExp, int buffer, int radiusLower, int radiusUpper, int nomRadiusLower, int nomRadiusUpper
+            AccessibleShiftedNoise2d thresholdFunction, double threshold, int cellSizeExp, int buffer, int radiusLower, int radiusUpper, int nomRadiusLower, int nomRadiusUpper
     ) implements DensityFunction {
         /*
         To ensure repeatability, CircularDensityFunction placement is determined by dividing the world into square cells. Each cell has a unique coordinate that
@@ -434,7 +442,7 @@ public class GCDensityFunctions {
 
         private static final MapCodec<DistributedCircularDensityFunction> DATA_CODEC = RecordCodecBuilder.mapCodec(
                 instance -> instance.group(
-                                DensityFunction.HOLDER_HELPER_CODEC.fieldOf("threshold_function").forGetter(DistributedCircularDensityFunction::thresholdFunction),
+                                AccessibleShiftedNoise2d.SUBCLASS_CODEC.fieldOf("threshold_function").forGetter(DistributedCircularDensityFunction::thresholdFunction),
                                 Codec.DOUBLE.fieldOf("threshold").forGetter(DistributedCircularDensityFunction::threshold),
                                 Codec.INT.fieldOf("cell_size_exp").forGetter(DistributedCircularDensityFunction::cellSizeExp),
                                 Codec.INT.fieldOf("buffer").forGetter(DistributedCircularDensityFunction::buffer),
@@ -513,16 +521,13 @@ public class GCDensityFunctions {
                     int zCenter = (currCellZ << cellSizeExp) + nextIntInRange(hash(seed ^ 0x6789A), buffer, (1 << cellSizeExp) - buffer);
                     int dz = z - zCenter;
                     int distFromCenterSq = dx * dx + dz * dz;
-                    if (distFromCenterSq < radiusUpperSq) {    // if this block is farther than the largest radius away from a contribution from a neighboring cell, short circuit
-                        if (this.thresholdFunction instanceof AccessibleShiftedNoise2d) {
-                            if ( ((AccessibleShiftedNoise2d)this.thresholdFunction).computeAt(xCenter, zCenter) > threshold ) {   // look at thresholdFunction at proposed placement location
-                                result = Math.max(result, computeDensity(seed, distFromCenterSq));
-                            }
-                        } else {
-                            if (this.thresholdFunction.compute(moveFunctionContextTo(context, xCenter, context.blockY(), zCenter)) > threshold) {
-                                result = Math.max(result, computeDensity(seed, distFromCenterSq));
-                            }
-                        }
+                    int radius = radiusLower == radiusUpper ? radiusLower :
+                            nextIntInRange(hash(seed ^ 0xEDCBA), radiusLower, radiusUpper);
+                    if (distFromCenterSq >= radius * radius) continue;  // calculate radius for this cell, short circuit if current pos is farther
+                    if (this.thresholdFunction.computeAt(xCenter, zCenter) > threshold) {   // look at thresholdFunction at proposed placement location
+                        int nomRadius = nomRadiusLower == nomRadiusUpper ? nomRadiusLower :
+                                nextIntInRange(hash(seed ^ 0x98765), nomRadiusLower, nomRadiusUpper);
+                        result = Math.max(result, (radius - Mth.sqrt(distFromCenterSq)) / nomRadius);
                     }
                 }
             }
@@ -538,7 +543,8 @@ public class GCDensityFunctions {
         public @NotNull DensityFunction mapAll(Visitor visitor) {
             return visitor.apply(
                     new DistributedCircularDensityFunction(
-                            this.thresholdFunction.mapAll(visitor), this.threshold, this.cellSizeExp, this.buffer, this.radiusLower, this.radiusUpper, this.nomRadiusLower, this.nomRadiusUpper)
+                            (AccessibleShiftedNoise2d)this.thresholdFunction.mapAll(visitor),
+                            this.threshold, this.cellSizeExp, this.buffer, this.radiusLower, this.radiusUpper, this.nomRadiusLower, this.nomRadiusUpper)
             );
         }
 
