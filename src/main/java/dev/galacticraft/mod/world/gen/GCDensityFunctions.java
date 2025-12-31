@@ -34,10 +34,11 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.*;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.levelgen.*;
-import net.minecraft.world.level.levelgen.blending.Blender;
 import net.minecraft.world.level.levelgen.synth.BlendedNoise;
 import net.minecraft.world.level.levelgen.synth.NormalNoise;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import java.util.Optional;
 
 public class GCDensityFunctions {
     public static final ResourceKey<DensityFunction> NOODLES = createKey("caves/noodles");
@@ -222,36 +223,36 @@ public class GCDensityFunctions {
         return new DensityFunctions.HolderHolder(densityFunctions.getOrThrow(key));
     }
 
-        );
-    }
 
-    }
 
-    public static AccessibleShiftedNoise2d makeAccessibleShiftedNoise2d(    // this exists because I need to pass the NoiseHolder to AccessibleShiftedNoise2d for it to see the NormalNoise
-            Holder<NormalNoise.NoiseParameters> sourceNoise, double xzScale, Holder<NormalNoise.NoiseParameters> shiftNoise
+    public static ShiftedNoise2dThreshold makeShiftedNoise2dThreshold(    // this exists because I need to pass the NoiseHolder to AccessibleShiftedNoise2d for it to see the NormalNoise
+            Holder<NormalNoise.NoiseParameters> sourceNoise, double xzScale, Holder<NormalNoise.NoiseParameters> shiftNoise, double valueShift
     ) {
-        return new AccessibleShiftedNoise2d(new DensityFunction.NoiseHolder(sourceNoise), xzScale, new DensityFunction.NoiseHolder(shiftNoise));
+        return new ShiftedNoise2dThreshold(new DensityFunction.NoiseHolder(sourceNoise), xzScale, new DensityFunction.NoiseHolder(shiftNoise), valueShift);
     }
 
-    public record AccessibleShiftedNoise2d(DensityFunction.NoiseHolder source, double xzScale, DensityFunction.NoiseHolder shift) implements DensityFunction {
+    public record ShiftedNoise2dThreshold(NoiseHolder source, double xzScale, NoiseHolder shift, double threshold) implements DensityFunction {
         /*
-        See DensityFunctions.ShiftedNoise
+        See DensityFunctions.ShiftedNoise. This is a wrapper for ShiftedNoise (such as is used to store terrain noises like erosion or weirdness) that allows noise to be calculated
+        at an (x,z) location as opposed to through a function context. It prevents DistributedCircularDensityFunction from needing to allocate a new FunctionContext for the center of
+        the potential circle every loop.
          */
-        private static final MapCodec<AccessibleShiftedNoise2d> DATA_CODEC = RecordCodecBuilder.mapCodec(
+        private static final MapCodec<ShiftedNoise2dThreshold> DATA_CODEC = RecordCodecBuilder.mapCodec(
                 instance -> instance.group(
-                                NormalNoise.NoiseParameters.CODEC.fieldOf("source").forGetter(ths -> ths.source().noiseData()), // uses lambda function to get variable
-                                Codec.DOUBLE.fieldOf("xz_scale").forGetter(AccessibleShiftedNoise2d::xzScale),
-                                NormalNoise.NoiseParameters.CODEC.fieldOf("shift").forGetter(ths -> ths.shift().noiseData())
+                                NormalNoise.NoiseParameters.CODEC.fieldOf("source").forGetter(df -> df.source().noiseData()), // uses lambda function to get variable
+                                Codec.DOUBLE.fieldOf("xz_scale").forGetter(ShiftedNoise2dThreshold::xzScale),
+                                NormalNoise.NoiseParameters.CODEC.fieldOf("shift").forGetter(df -> df.shift().noiseData()),
+                                Codec.DOUBLE.fieldOf("value_shift").forGetter(df -> df.threshold)
                         )
-                        .apply(instance, GCDensityFunctions::makeAccessibleShiftedNoise2d)  // Google recommended storing the noiseData for the codec, so it has to be wrapped for the constructor
+                        .apply(instance, GCDensityFunctions::makeShiftedNoise2dThreshold)  // Google recommended storing the noiseData for the codec, so it has to be wrapped for the constructor
         );
-        public static final KeyDispatchDataCodec<AccessibleShiftedNoise2d> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
-        public static final Codec<AccessibleShiftedNoise2d> SUBCLASS_CODEC = DensityFunction.HOLDER_HELPER_CODEC.xmap(
+        public static final KeyDispatchDataCodec<ShiftedNoise2dThreshold> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
+        public static final Codec<ShiftedNoise2dThreshold> SUBCLASS_CODEC = DensityFunction.HOLDER_HELPER_CODEC.xmap(
                 df -> {
                     if (df instanceof DensityFunctions.HolderHolder holder) {   // Minecraft passes through a HolderHolder, which must be unwrapped first
                         df = holder.function().value();
                     }
-                    return (AccessibleShiftedNoise2d) df;},
+                    return (ShiftedNoise2dThreshold) df;},
                 df -> df
         );
 
@@ -268,7 +269,7 @@ public class GCDensityFunctions {
              */
             double xSample = x * this.xzScale + computeShift(x, 0, z);
             double zSample = z * this.xzScale + computeShift(z, x, 0);
-            return this.source.getValue(xSample, 0, zSample);
+            return this.source.getValue(xSample, 0, zSample) - this.threshold;
         }
 
         @Override
@@ -284,7 +285,7 @@ public class GCDensityFunctions {
         @Override
         public @NotNull DensityFunction mapAll(Visitor visitor) {
             return visitor.apply(
-                    new AccessibleShiftedNoise2d(visitor.visitNoise(this.source), this.xzScale, visitor.visitNoise(this.shift))
+                    new ShiftedNoise2dThreshold(visitor.visitNoise(this.source), this.xzScale, visitor.visitNoise(this.shift), this.threshold)
             );
         }
 
@@ -307,24 +308,24 @@ public class GCDensityFunctions {
     public static class DistributedCircularDensityFunction implements DensityFunction {
         /*
         To ensure repeatability, CircularDensityFunction placement is determined by dividing the world into square cells. Each cell has a unique coordinate that
-        is used to generate a seed for a RandomSource. Placement of the CircularDensityFunction within the cell is randomized based on the seed. The buffer ensures
-        a distance between the center and the cell boundary. Final placement is conditional on whether the value of thresholdFunction is positive at that point.
+        is used to generate a seed. Placement of the CircularDensityFunction within the cell is randomized based on the seed. The buffer ensures a distance
+        between the center and the cell boundary. Final placement is conditional on whether the value of thresholdFunction is positive at that point.
          */
         private static final MapCodec<DistributedCircularDensityFunction> DATA_CODEC = RecordCodecBuilder.mapCodec(
                 instance -> instance.group(
-                                AccessibleShiftedNoise2d.SUBCLASS_CODEC.fieldOf("threshold_function").forGetter(df -> df.thresholdFunction),
-                                Codec.DOUBLE.fieldOf("threshold").forGetter(df -> df.threshold),
+                                ShiftedNoise2dThreshold.SUBCLASS_CODEC.fieldOf("threshold_function_1").forGetter(df -> df.thresholdFunction1),
+                                ShiftedNoise2dThreshold.SUBCLASS_CODEC.optionalFieldOf("threshold_function_2").forGetter(df -> Optional.ofNullable(df.thresholdFunction2)),
                                 Codec.INT.fieldOf("cell_size_exp").forGetter(df -> df.cellSizeExp),
                                 Codec.INT.fieldOf("buffer").forGetter(df -> df.buffer),
                                 Codec.INT.fieldOf("radius_lower").forGetter(df -> df.radiusLower),
                                 Codec.INT.fieldOf("radius_upper").forGetter(df -> df.radiusUpper),
-                                Codec.INT.fieldOf("nom_radius_lower").forGetter(df -> df.nomRadius)
-                        )
-                        .apply(instance, DistributedCircularDensityFunction::new)
+                                Codec.INT.fieldOf("nom_radius").forGetter(df -> df.nomRadius)
+                        )   // second thresholdFunction must be optional since it can be null
+                        .apply(instance, (tf1, tf2, cse, b, rl, ru, nr) -> new DistributedCircularDensityFunction(tf1, tf2.orElse(null), cse, b, rl, ru, nr))
         );
         public static final KeyDispatchDataCodec<DistributedCircularDensityFunction> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
-        private final AccessibleShiftedNoise2d thresholdFunction;
-        private final double threshold;
+        private final ShiftedNoise2dThreshold thresholdFunction1;
+        private final @Nullable GCDensityFunctions.ShiftedNoise2dThreshold thresholdFunction2;
         private final int cellSizeExp;
         private final int buffer;
         private final int radiusLower;
@@ -333,7 +334,9 @@ public class GCDensityFunctions {
         private final float invNomRadius;
 
         public DistributedCircularDensityFunction(
-                AccessibleShiftedNoise2d thresholdFunction, double threshold, int cellSizeExp, int buffer, int radiusLower, int radiusUpper, int nomRadius
+                ShiftedNoise2dThreshold thresholdFunction1,
+                @Nullable GCDensityFunctions.ShiftedNoise2dThreshold thresholdFunction2,
+                int cellSizeExp, int buffer, int radiusLower, int radiusUpper, int nomRadius
         ) {
             if (cellSizeExp < 0 || buffer < 0 || radiusUpper < 0 || radiusLower < 0 || nomRadius < 0) {
                 throw new IllegalArgumentException("Integer inputs must be non-negative.");
@@ -347,14 +350,21 @@ public class GCDensityFunctions {
             if (radiusUpper < radiusLower) {
                 throw new IllegalArgumentException("Upper bounds cannot be smaller than lower bounds.");
             }
-            this.thresholdFunction = thresholdFunction;
-            this.threshold = threshold;
+            this.thresholdFunction1 = thresholdFunction1;
+            this.thresholdFunction2 = thresholdFunction2;
             this.cellSizeExp = cellSizeExp;
             this.buffer = buffer;
             this.radiusLower = radiusLower;
             this.radiusUpper = radiusUpper;
             this.nomRadius = nomRadius;
             this.invNomRadius = 1F / nomRadius;
+        }
+
+        public DistributedCircularDensityFunction(
+                ShiftedNoise2dThreshold thresholdFunction1,
+                int cellSizeExp, int buffer, int radiusLower, int radiusUpper, int nomRadius
+        ) {
+            this(thresholdFunction1, null, cellSizeExp, buffer, radiusLower, radiusUpper, nomRadius);
         }
 
         private static long getSeedAtPos(int x, int z) {
@@ -405,8 +415,10 @@ public class GCDensityFunctions {
                     distFromCenterSq = dx * dx + dz * dz;
                     radius = radiusLower == radiusUpper ? radiusLower : nextIntInRange(hash(seed ^ 0xEDCBA), radiusLower, radiusUpper);
                     if (distFromCenterSq >= radius * radius) continue;  // calculate radius for this cell, short circuit if current pos is farther
-                    if (this.thresholdFunction.computeAt(xCenter, zCenter) > threshold) {   // look at thresholdFunction at proposed placement location
-                        result = Math.max(result, (radius - Mth.sqrt(distFromCenterSq)) * invNomRadius);
+                    if (thresholdFunction1.computeAt(xCenter, zCenter) > 0) {   // look at thresholdFunction at proposed placement location
+                        if (thresholdFunction2 == null || thresholdFunction2.computeAt(xCenter, zCenter) > 0) {
+                            result = Math.max(result, (radius - Mth.sqrt(distFromCenterSq)) * invNomRadius);
+                        }
                     }
                 }
             }
@@ -422,8 +434,9 @@ public class GCDensityFunctions {
         public @NotNull DensityFunction mapAll(Visitor visitor) {
             return visitor.apply(
                     new DistributedCircularDensityFunction(
-                            (AccessibleShiftedNoise2d)thresholdFunction.mapAll(visitor),
-                            threshold, cellSizeExp, buffer, radiusLower, radiusUpper, nomRadius)
+                            (ShiftedNoise2dThreshold) thresholdFunction1.mapAll(visitor),
+                            (ShiftedNoise2dThreshold) (thresholdFunction2 != null ? thresholdFunction2.mapAll(visitor) : null),
+                            cellSizeExp, buffer, radiusLower, radiusUpper, nomRadius)
             );
         }
 
