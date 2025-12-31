@@ -318,9 +318,11 @@ public class GCDensityFunctions {
             }
             int x = context.blockX();
             int z = context.blockZ();
+            if (x*x + z*z >= radius*radius) {
+                return 0.0;
+            }
             float currR = Mth.sqrt(x*x + z*z);
-            float noiseHeight = (radius - currR) / nominalRadius;
-            return Math.max(noiseHeight, 0.0F);
+            return (radius - currR) / nominalRadius;
         }
 
         @Override
@@ -335,7 +337,14 @@ public class GCDensityFunctions {
 
         @Override
         public double maxValue() {
-            return (double) nominalRadius / radius;
+            return (double) radius / nominalRadius;
+        }
+
+        @Override
+        public @NotNull KeyDispatchDataCodec<? extends DensityFunction> codec() {
+            return CODEC;
+        }
+    }
 
     public static AccessibleShiftedNoise2d makeAccessibleShiftedNoise2d(    // this exists because I need to pass the NoiseHolder to AccessibleShiftedNoise2d for it to see the NormalNoise
             Holder<NormalNoise.NoiseParameters> sourceNoise, double xzScale, Holder<NormalNoise.NoiseParameters> shiftNoise
