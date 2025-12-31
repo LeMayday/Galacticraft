@@ -481,40 +481,16 @@ public class GCDensityFunctions {
             return min + offset;
         }
 
-        private double computeDensity(int seed, int distFromCenterSq) {
-            int radius = radiusLower == radiusUpper ? radiusLower :
-                    nextIntInRange(hash(seed ^ 0xEDCBA), radiusLower, radiusUpper);
-            if (distFromCenterSq < radius * radius) {   // if this block is father than radius away from the
-                int nomRadius = nomRadiusLower == nomRadiusUpper ? nomRadiusLower :
-                        nextIntInRange(hash(seed ^ 0x98765), nomRadiusLower, nomRadiusUpper);
-                return (radius - Mth.sqrt(distFromCenterSq)) / nomRadius;
-            }
-            return 0;
-        }
-
-        private boolean skipCell(int mainCellPos, int cellIdx, int blockPos) {  // evaluates whether to skip cells along an axis
-            if (cellIdx == 0) {
-                return false;   // can't evaluate at center of axis, so don't skip
-            }
-            final int distToCellThreshold = radiusUpper - buffer;
-            int cellBoundaryCoord = cellIdx == 1 ? mainCellPos + 1 << cellSizeExp : (mainCellPos << cellSizeExp) - 1;   // coordinate of cell boundary
-            return Mth.abs(blockPos - cellBoundaryCoord) >= distToCellThreshold;    // if more than some dist away, skip
-        }
-
         @Override
         public double compute(FunctionContext context) {
             final int x = context.blockX();
             final int z = context.blockZ();
-            final int cellX = x >> cellSizeExp;                 // need consistent floor operation for cells around origin to be unique
-            final int cellZ = z >> cellSizeExp;
-            final int radiusUpperSq = radiusUpper * radiusUpper;
+            final int distToCellThreshold = radiusUpper - buffer;
             double result = 0;
-            for (int xc = -1; xc <= 1; xc++) {                  // for each block, determine potential contributions from eight neighboring cells
-                int currCellX = cellX + xc;
-                if (skipCell(cellX, xc, x)) continue;
-                for (int zc = -1; zc <= 1; zc++) {      // Within each cell in 3x3 grid, determine where the density function locations should be and then process contributions.
-                    int currCellZ = cellZ + zc;
-                    if (skipCell(cellZ, zc, z)) continue;
+            // Within each cell in 3x3 grid, determine where the density function locations should be and then process contributions.
+            // Bit shift performs floorDiv, which is desired. The loop statements auto-skip cells if out of range.
+            for (int currCellX = x - distToCellThreshold >> cellSizeExp; currCellX <= x + distToCellThreshold >> cellSizeExp; currCellX++) {
+                for (int currCellZ = z - distToCellThreshold >> cellSizeExp; currCellZ <= z + distToCellThreshold >> cellSizeExp; currCellZ++) {
                     int seed = (int) getSeedAtPos(currCellX, currCellZ);
                     int xCenter = (currCellX << cellSizeExp) + nextIntInRange(hash(seed ^ 0x12345), buffer, (1 << cellSizeExp) - buffer);
                     int dx = x - xCenter;
