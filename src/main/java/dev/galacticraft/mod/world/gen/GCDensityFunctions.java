@@ -226,9 +226,9 @@ public class GCDensityFunctions {
 
 
     public static ShiftedNoise2dThreshold makeShiftedNoise2dThreshold(    // this exists because I need to pass the NoiseHolder to AccessibleShiftedNoise2d for it to see the NormalNoise
-            Holder<NormalNoise.NoiseParameters> sourceNoise, double xzScale, Holder<NormalNoise.NoiseParameters> shiftNoise, double valueShift
+            Holder<NormalNoise.NoiseParameters> sourceNoise, double xzScale, Holder<NormalNoise.NoiseParameters> shiftNoise, double threshold
     ) {
-        return new ShiftedNoise2dThreshold(new DensityFunction.NoiseHolder(sourceNoise), xzScale, new DensityFunction.NoiseHolder(shiftNoise), valueShift);
+        return new ShiftedNoise2dThreshold(new DensityFunction.NoiseHolder(sourceNoise), xzScale, new DensityFunction.NoiseHolder(shiftNoise), threshold);
     }
 
     public record ShiftedNoise2dThreshold(NoiseHolder source, double xzScale, NoiseHolder shift, double threshold) implements DensityFunction {
@@ -236,6 +236,7 @@ public class GCDensityFunctions {
         See DensityFunctions.ShiftedNoise. This is a wrapper for ShiftedNoise (such as is used to store terrain noises like erosion or weirdness) that allows noise to be calculated
         at an (x,z) location as opposed to through a function context. It prevents DistributedCircularDensityFunction from needing to allocate a new FunctionContext for the center of
         the potential circle every loop.
+        Note that while noises are defined with shiftX and shiftZ, these are just various shifts of Noises.Shift, and are taken into account in computeAt
          */
         private static final MapCodec<ShiftedNoise2dThreshold> DATA_CODEC = RecordCodecBuilder.mapCodec(
                 instance -> instance.group(
@@ -331,11 +332,11 @@ public class GCDensityFunctions {
         private final int radiusLower;
         private final int radiusUpper;
         private final int nomRadius;
-        private final float invNomRadius;
+        private final float invNomRadiusSq;
 
         public DistributedCircularDensityFunction(
                 ShiftedNoise2dThreshold thresholdFunction1,
-                @Nullable GCDensityFunctions.ShiftedNoise2dThreshold thresholdFunction2,
+                @Nullable ShiftedNoise2dThreshold thresholdFunction2,
                 int cellSizeExp, int buffer, int radiusLower, int radiusUpper, int nomRadius
         ) {
             if (cellSizeExp < 0 || buffer < 0 || radiusUpper < 0 || radiusLower < 0 || nomRadius < 0) {
@@ -357,7 +358,7 @@ public class GCDensityFunctions {
             this.radiusLower = radiusLower;
             this.radiusUpper = radiusUpper;
             this.nomRadius = nomRadius;
-            this.invNomRadius = 1F / nomRadius;
+            this.invNomRadiusSq = 1F / nomRadius / nomRadius;
         }
 
         public DistributedCircularDensityFunction(
@@ -403,21 +404,23 @@ public class GCDensityFunctions {
             final int minCellZ = (z - distToCellThreshold) >> cellSizeExp;
             final int maxCellZ = (z + distToCellThreshold) >> cellSizeExp;
             double result = 0;
+            // Functions could sit on boundary of neighboring cell.
             // Within each cell in 3x3 grid, determine where the density function locations should be and then process contributions.
-            int seed, xCenter, dx, zCenter, dz, distFromCenterSq, radius;
             for (int currCellX = minCellX; currCellX <= maxCellX; currCellX++) {
                 for (int currCellZ = minCellZ; currCellZ <= maxCellZ; currCellZ++) {
-                    seed = (int) getSeedAtPos(currCellX, currCellZ);
-                    xCenter = (currCellX << cellSizeExp) + nextIntInRange(hash(seed ^ 0x12345), buffer, (1 << cellSizeExp) - buffer);
-                    dx = x - xCenter;
-                    zCenter = (currCellZ << cellSizeExp) + nextIntInRange(hash(seed ^ 0x6789A), buffer, (1 << cellSizeExp) - buffer);
-                    dz = z - zCenter;
-                    distFromCenterSq = dx * dx + dz * dz;
-                    radius = radiusLower == radiusUpper ? radiusLower : nextIntInRange(hash(seed ^ 0xEDCBA), radiusLower, radiusUpper);
-                    if (distFromCenterSq >= radius * radius) continue;  // calculate radius for this cell, short circuit if current pos is farther
+                    // each cell has unique seed to determine center placement
+                    int seed = (int) getSeedAtPos(currCellX, currCellZ);
+                    int xCenter = (currCellX << cellSizeExp) + nextIntInRange(hash(seed ^ 0x12345), buffer, (1 << cellSizeExp) - buffer);
+                    int dx = x - xCenter;
+                    int zCenter = (currCellZ << cellSizeExp) + nextIntInRange(hash(seed ^ 0x6789A), buffer, (1 << cellSizeExp) - buffer);
+                    int dz = z - zCenter;
+                    int distFromCenterSq = dx * dx + dz * dz;
+                    int radius = radiusLower == radiusUpper ? radiusLower : nextIntInRange(hash(seed ^ 0xEDCBA), radiusLower, radiusUpper);
+                    int radiusSq = radius * radius;
+                    if (distFromCenterSq >= radiusSq) continue;  // calculate radius for this cell, short circuit if current pos is farther
                     if (thresholdFunction1.computeAt(xCenter, zCenter) > 0) {   // look at thresholdFunction at proposed placement location
                         if (thresholdFunction2 == null || thresholdFunction2.computeAt(xCenter, zCenter) > 0) {
-                            result = Math.max(result, (radius - Mth.sqrt(distFromCenterSq)) * invNomRadius);
+                            result = Math.max(result, (radiusSq - distFromCenterSq) * invNomRadiusSq);  // has roughly 1 - r^2 profile
                         }
                     }
                 }
@@ -447,7 +450,7 @@ public class GCDensityFunctions {
 
         @Override
         public double maxValue() {
-            return (double) radiusUpper * invNomRadius;
+            return (double) radiusUpper * radiusUpper * invNomRadiusSq;
         }
 
         @Override
