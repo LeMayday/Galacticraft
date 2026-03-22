@@ -147,7 +147,7 @@ public class GCDensityFunctions {
 //            )
 //        );
 
-        bootstrapRegistriesMars(context);
+        MarsTerrainProvider.bootstrapRegistriesMars(context);
 
         context.register(Venus.FINAL_DENSITY, DensityFunctions.add(
                 DensityFunctions.yClampedGradient(0, 90, 1, -1),
