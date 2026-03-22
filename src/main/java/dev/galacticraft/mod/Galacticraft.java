@@ -128,6 +128,10 @@ public class Galacticraft implements ModInitializer {
                 ResourceLocation.fromNamespaceAndPath(Constant.MOD_ID, "accessible_shifted_2d_noise"),
                 GCDensityFunctions.ShiftedNoise2dThreshold.CODEC.codec()
         );
+        Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE,
+                ResourceLocation.fromNamespaceAndPath(Constant.MOD_ID, "different_scaled_noise"),
+                GCDensityFunctions.DifferentScaledNoise.CODEC.codec()
+        );
         Constant.LOGGER.info("Initialization complete. (Took {}ms).", System.currentTimeMillis() - startInitTime);
     }
 }

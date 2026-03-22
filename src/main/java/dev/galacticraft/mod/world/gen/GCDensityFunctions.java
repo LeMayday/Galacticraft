@@ -221,9 +221,52 @@ public class GCDensityFunctions {
 
     public static DensityFunction getFunction(HolderGetter<DensityFunction> densityFunctions, ResourceKey<DensityFunction> key) {
         return new DensityFunctions.HolderHolder(densityFunctions.getOrThrow(key));
+    public static DensityFunction noise(Holder<NormalNoise.NoiseParameters> noiseParameters, double scaleX, double scaleY, double scaleZ) {
+        return new DifferentScaledNoise(new DensityFunction.NoiseHolder(noiseParameters), scaleX, scaleY, scaleZ);
     }
 
+    public record DifferentScaledNoise(DensityFunction.NoiseHolder noise, double xScale, double yScale, double zScale) implements DensityFunction {
+        public static final MapCodec<DifferentScaledNoise> DATA_CODEC = RecordCodecBuilder.mapCodec(
+                instance -> instance.group(
+                                DensityFunction.NoiseHolder.CODEC.fieldOf("noise").forGetter(DifferentScaledNoise::noise),
+                                Codec.DOUBLE.fieldOf("x_scale").forGetter(DifferentScaledNoise::xScale),
+                                Codec.DOUBLE.fieldOf("y_scale").forGetter(DifferentScaledNoise::yScale),
+                                Codec.DOUBLE.fieldOf("z_scale").forGetter(DifferentScaledNoise::zScale)
+                        )
+                        .apply(instance, DifferentScaledNoise::new)
+        );
+        public static final KeyDispatchDataCodec<DifferentScaledNoise> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
 
+        @Override
+        public double compute(DensityFunction.FunctionContext context) {
+            return this.noise.getValue(context.blockX() * this.xScale, context.blockY() * this.yScale, context.blockZ() * this.zScale);
+        }
+
+        @Override
+        public void fillArray(double[] densities, DensityFunction.ContextProvider applier) {
+            applier.fillAllDirectly(densities, this);
+        }
+
+        @Override
+        public @NotNull DensityFunction mapAll(DensityFunction.Visitor visitor) {
+            return visitor.apply(new DifferentScaledNoise(visitor.visitNoise(this.noise), this.xScale, this.yScale, this.zScale));
+        }
+
+        @Override
+        public double minValue() {
+            return -this.maxValue();
+        }
+
+        @Override
+        public double maxValue() {
+            return this.noise.maxValue();
+        }
+
+        @Override
+        public @NotNull KeyDispatchDataCodec<? extends DensityFunction> codec() {
+            return CODEC;
+        }
+    }
 
     public static ShiftedNoise2dThreshold makeShiftedNoise2dThreshold(    // this exists because I need to pass the NoiseHolder to AccessibleShiftedNoise2d for it to see the NormalNoise
             Holder<NormalNoise.NoiseParameters> sourceNoise, double xzScale, Holder<NormalNoise.NoiseParameters> shiftNoise, double threshold
