@@ -168,8 +168,26 @@ public class GCDensityFunctions {
         return new DensityFunctions.HolderHolder(densityFunctions.getOrThrow(key));
     }
 
+    public static DensityFunction peaksAndValleys(DensityFunction input) {
+        /*
+        See NoiseRouterData
+         */
+        return DensityFunctions.mul(
+                DensityFunctions.add(DensityFunctions.add(input.abs(), DensityFunctions.constant(-0.6666666666666666)).abs(), DensityFunctions.constant(-0.3333333333333333)),
+                DensityFunctions.constant(-3.0)
+        );
     }
 
+    public static CubicSpline<DensityFunctions.Spline.Point, DensityFunctions.Spline.Coordinate> largeCraterSplineBuilder(Holder<DensityFunction> circularDensityFunction) {
+        return CubicSpline.builder(new DensityFunctions.Spline.Coordinate(circularDensityFunction))
+                .addPoint(0.0F, 0.0F)
+                .addPoint(0.05F, 0.05F)
+                .addPoint(0.2F, -0.5F)
+                .addPoint(0.45F, -0.7F)
+                .addPoint(0.8F, -0.75F)
+                .addPoint(0.9F, -0.6F)
+                .addPoint(1.1F, -0.5F)
+                .build();
     }
 
     public static DensityFunction noise(Holder<NormalNoise.NoiseParameters> noiseParameters, double scaleX, double scaleY, double scaleZ) {
