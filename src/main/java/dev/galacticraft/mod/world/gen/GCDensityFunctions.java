@@ -53,6 +53,7 @@ public class GCDensityFunctions {
         public static final ResourceKey<DensityFunction> CONTINENTALNESS = createKey("mars/continentalness");   // controls overall terrain elevation
         public static final ResourceKey<DensityFunction> EROSION = createKey("mars/erosion");                   // controls flatness of terrain
         public static final ResourceKey<DensityFunction> WEIRDNESS = createKey("mars/weirdness");               // controls special biomes
+        public static final ResourceKey<DensityFunction> PV = createKey("mars/pv");
         public static final ResourceKey<DensityFunction> FINAL_DENSITY = createKey("mars/final_density");
     }
 
@@ -159,68 +160,18 @@ public class GCDensityFunctions {
         ));
     }
 
-    private static void bootstrapRegistriesMars(BootstrapContext<DensityFunction> context) {
-        HolderGetter<DensityFunction> densityLookup = context.lookup(Registries.DENSITY_FUNCTION);
-        var noiseRegistry = context.lookup(Registries.NOISE);
-        DensityFunction shiftX = getFunction(densityLookup, NoiseRouterData.SHIFT_X);
-        DensityFunction shiftZ = getFunction(densityLookup, NoiseRouterData.SHIFT_Z);
-        DensityFunction y = getFunction(densityLookup, NoiseRouterData.Y);
-
-        // redefine overworld noises to have 4x frequency
-
-        DensityFunction temperature = registerAndWrap(context, Mars.TEMPERATURE,
-                DensityFunctions.min(DensityFunctions.zero(), DensityFunctions.flatCache(
-                        DensityFunctions.shiftedNoise2d(
-                                shiftX, shiftZ, 1.0, noiseRegistry.getOrThrow(Noises.TEMPERATURE)
-                        ))
-                )
-        ); // cap temp at 0
-
-        DensityFunction continentalness = registerAndWrap(context, Mars.CONTINENTALNESS, DensityFunctions.flatCache(
-                DensityFunctions.shiftedNoise2d(
-                        shiftX, shiftZ, 1.0, noiseRegistry.getOrThrow(Noises.CONTINENTALNESS)
-                )
-        ));
-
-        DensityFunction erosion = registerAndWrap(context, Mars.EROSION, DensityFunctions.flatCache(
-              DensityFunctions.shiftedNoise2d(
-                      shiftX, shiftZ, 1.0, noiseRegistry.getOrThrow(Noises.EROSION)
-              )
-        ));
-
-        DensityFunction weirdness = registerAndWrap(context, Mars.WEIRDNESS, DensityFunctions.flatCache(
-                DensityFunctions.shiftedNoise2d(
-                        shiftX, shiftZ, 1.0, noiseRegistry.getOrThrow(Noises.RIDGE)
-                )
-        ));
-
-        context.register(Mars.FINAL_DENSITY, DensityFunctions.add(
-                DensityFunctions.yClampedGradient(32, 160, 1, -1),
-                DensityFunctions.blendDensity(continentalness)
-        ));
-
-
-//        context.register(Mars.FINAL_DENSITY, DensityFunctions.add(
-//                DensityFunctions.yClampedGradient(32, 160, 1, -1),
-//                DensityFunctions.blendDensity(
-//                        DensityFunctions.rangeChoice(GCDensityFunctions.getFunction(densityLookup, NoiseRouterData.CONTINENTS), 0, 1,
-//                                DensityFunctions.noise(noiseRegistry.getOrThrow(GCNoiseData.MARS_HIGHLAND), 1, 1),
-//                                DensityFunctions.noise(noiseRegistry.getOrThrow(GCNoiseData.MARS_LOWLAND), 1, 1)
-//                        )
-//                )
-////                DensityFunctions.add(
-////                        DensityFunctions.noise(noiseRegistry.getOrThrow(GCNoiseData.MARS_HIGHLAND), 1, 1),
-////                        DensityFunctions.noise(noiseRegistry.getOrThrow(GCNoiseData.MARS_LOWLAND), 1, 1)
-////                )
-//        ));
-    }
-
-    private static DensityFunction registerAndWrap(BootstrapContext<DensityFunction> context, ResourceKey<DensityFunction> key, DensityFunction densityFunction) {
+    public static DensityFunction registerAndWrap(BootstrapContext<DensityFunction> context, ResourceKey<DensityFunction> key, DensityFunction densityFunction) {
         return new DensityFunctions.HolderHolder(context.register(key, densityFunction));
     }
 
     public static DensityFunction getFunction(HolderGetter<DensityFunction> densityFunctions, ResourceKey<DensityFunction> key) {
         return new DensityFunctions.HolderHolder(densityFunctions.getOrThrow(key));
+    }
+
+    }
+
+    }
+
     public static DensityFunction noise(Holder<NormalNoise.NoiseParameters> noiseParameters, double scaleX, double scaleY, double scaleZ) {
         return new DifferentScaledNoise(new DensityFunction.NoiseHolder(noiseParameters), scaleX, scaleY, scaleZ);
     }
