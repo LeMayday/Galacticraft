@@ -384,7 +384,6 @@ public class GCDensityFunctions {
 
         private static class CacheContainer {
             public final long[] keys = new long[64];            // 64 cache slots for cell positions
-
             // circle position and radius is computed per cell
             public final int[] xCenters = new int[64];          // xCenter in each cell
             public final int[] zCenters = new int[64];          // zCenter in each cell
@@ -405,7 +404,7 @@ public class GCDensityFunctions {
             }
         }
 
-        private static long getSeedAtPos(int x, int z) {
+        private static int getSeedAtPos(int x, int z) {
             return ChunkPos.hash(x, z);
         }
 
@@ -446,11 +445,10 @@ public class GCDensityFunctions {
             // Within each cell in 3x3 grid, determine where the density function locations should be and then process contributions.
             for (int currCellX = minCellX; currCellX <= maxCellX; currCellX++) {
                 for (int currCellZ = minCellZ; currCellZ <= maxCellZ; currCellZ++) {
-                    long key = ((long) currCellX << 32) | (currCellZ & 0xFFFFFFFFL);    // cache key for cell position
-                    int idx = (int) (key & 63);     // modulo 64
-                    if (cache.keys[idx] != key) {
-                        // each cell has unique seed to determine center placement
-                        int seed = (int) getSeedAtPos(currCellX, currCellZ);
+                    long key = ((long) currCellX << 32) | (currCellZ & 0xFFFFFFFFL);    // cache key for cell position, want to guarantee uniqueness for cell (use long)
+                    int seed = getSeedAtPos(currCellX, currCellZ);                      // each cell has unique seed to determine center placement
+                    int idx = seed & 63;                                                // modulo 64 (size of cache) -- note seed is sufficiently scrambled to find in cache
+                    if (cache.keys[idx] != key) {                                       // but keep long as key to verify two cells are really different
                         int xCenter = (currCellX << cellSizeExp) + nextIntInRange(hash(seed ^ 0x12345), buffer, (1 << cellSizeExp) - buffer);
                         int zCenter = (currCellZ << cellSizeExp) + nextIntInRange(hash(seed ^ 0x6789A), buffer, (1 << cellSizeExp) - buffer);
                         int radius = radiusLower == radiusUpper ? radiusLower : nextIntInRange(hash(seed ^ 0xEDCBA), radiusLower, radiusUpper);
@@ -463,7 +461,7 @@ public class GCDensityFunctions {
                     int dx = x - cache.xCenters[idx];
                     int dz = z - cache.zCenters[idx];
                     int distFromCenterSq = dx * dx + dz * dz;
-                    maxDensity = Math.max(maxDensity, Math.max(radiusSq - distFromCenterSq, 0) * invNomRadiusSq * cache.meetsThresholds[idx]);    // has roughly 1 - r^2 profile
+                    maxDensity = Math.max(maxDensity, Math.max(radiusSq - distFromCenterSq, 0) * invNomRadiusSq * cache.meetsThresholds[idx]);    // has roughly 1 - r^2 profile; 0 if below threshold or if dist >= radius
                 }
             }
             return maxDensity;
