@@ -380,6 +380,31 @@ public class GCDensityFunctions {
             this(thresholdFunction1, null, cellSizeExp, buffer, radiusLower, radiusUpper, nomRadius);
         }
 
+        private static final ThreadLocal<CacheContainer> THREAD_CACHE = ThreadLocal.withInitial(CacheContainer::new);
+
+        private static class CacheContainer {
+            public final long[] keys = new long[64];            // 64 cache slots for cell positions
+
+            // circle position and radius is computed per cell
+            public final int[] xCenters = new int[64];          // xCenter in each cell
+            public final int[] zCenters = new int[64];          // zCenter in each cell
+            public final int[] radiiSq = new int[64];           // radiusSq in each cell
+            // multiplier for final density to avoid if statement
+            public final double[] meetsThresholds = new double[64];     // are threshold conditions satisfied (1.0) or not (0.0)
+
+            public CacheContainer() {
+                java.util.Arrays.fill(keys, Long.MIN_VALUE);
+            }
+
+            public void cacheValues(int idx, long key, int xCenter, int zCenter, int radiusSq, boolean meetsThreshold) {
+                keys[idx] = key;
+                xCenters[idx] = xCenter;
+                zCenters[idx] = zCenter;
+                radiiSq[idx] = radiusSq;
+                meetsThresholds[idx] = meetsThreshold ? 1.0 : 0.0;
+            }
+        }
+
         private static long getSeedAtPos(int x, int z) {
             return ChunkPos.hash(x, z);
         }
@@ -408,6 +433,7 @@ public class GCDensityFunctions {
 
         @Override
         public double compute(FunctionContext context) {
+            CacheContainer cache = THREAD_CACHE.get();
             final int x = context.blockX();
             final int z = context.blockZ();
             final int distToCellThreshold = radiusUpper - buffer;
@@ -415,29 +441,32 @@ public class GCDensityFunctions {
             final int maxCellX = (x + distToCellThreshold) >> cellSizeExp;
             final int minCellZ = (z - distToCellThreshold) >> cellSizeExp;
             final int maxCellZ = (z + distToCellThreshold) >> cellSizeExp;
-            double result = 0;
+            double maxDensity = 0;
             // Functions could sit on boundary of neighboring cell.
             // Within each cell in 3x3 grid, determine where the density function locations should be and then process contributions.
             for (int currCellX = minCellX; currCellX <= maxCellX; currCellX++) {
                 for (int currCellZ = minCellZ; currCellZ <= maxCellZ; currCellZ++) {
-                    // each cell has unique seed to determine center placement
-                    int seed = (int) getSeedAtPos(currCellX, currCellZ);
-                    int xCenter = (currCellX << cellSizeExp) + nextIntInRange(hash(seed ^ 0x12345), buffer, (1 << cellSizeExp) - buffer);
-                    int dx = x - xCenter;
-                    int zCenter = (currCellZ << cellSizeExp) + nextIntInRange(hash(seed ^ 0x6789A), buffer, (1 << cellSizeExp) - buffer);
-                    int dz = z - zCenter;
-                    int distFromCenterSq = dx * dx + dz * dz;
-                    int radius = radiusLower == radiusUpper ? radiusLower : nextIntInRange(hash(seed ^ 0xEDCBA), radiusLower, radiusUpper);
-                    int radiusSq = radius * radius;
-                    if (distFromCenterSq >= radiusSq) continue;  // calculate radius for this cell, short circuit if current pos is farther
-                    if (thresholdFunction1.computeAt(xCenter, zCenter) > 0) {   // look at thresholdFunction at proposed placement location
-                        if (thresholdFunction2 == null || thresholdFunction2.computeAt(xCenter, zCenter) > 0) {
-                            result = Math.max(result, (radiusSq - distFromCenterSq) * invNomRadiusSq);  // has roughly 1 - r^2 profile
-                        }
+                    long key = ((long) currCellX << 32) | (currCellZ & 0xFFFFFFFFL);    // cache key for cell position
+                    int idx = (int) (key & 63);     // modulo 64
+                    if (cache.keys[idx] != key) {
+                        // each cell has unique seed to determine center placement
+                        int seed = (int) getSeedAtPos(currCellX, currCellZ);
+                        int xCenter = (currCellX << cellSizeExp) + nextIntInRange(hash(seed ^ 0x12345), buffer, (1 << cellSizeExp) - buffer);
+                        int zCenter = (currCellZ << cellSizeExp) + nextIntInRange(hash(seed ^ 0x6789A), buffer, (1 << cellSizeExp) - buffer);
+                        int radius = radiusLower == radiusUpper ? radiusLower : nextIntInRange(hash(seed ^ 0xEDCBA), radiusLower, radiusUpper);
+                        int radiusSq = radius * radius;
+                        boolean meetsThreshold = (thresholdFunction1.computeAt(xCenter, zCenter) > 0) &&    // look at thresholdFunction at proposed placement location
+                                (thresholdFunction2 == null || thresholdFunction2.computeAt(xCenter, zCenter) > 0);
+                        cache.cacheValues(idx, key, xCenter, zCenter, radiusSq, meetsThreshold);
                     }
+                    int radiusSq = cache.radiiSq[idx];
+                    int dx = x - cache.xCenters[idx];
+                    int dz = z - cache.zCenters[idx];
+                    int distFromCenterSq = dx * dx + dz * dz;
+                    maxDensity = Math.max(maxDensity, Math.max(radiusSq - distFromCenterSq, 0) * invNomRadiusSq * cache.meetsThresholds[idx]);    // has roughly 1 - r^2 profile
                 }
             }
-            return result;
+            return maxDensity;
         }
 
         @Override
