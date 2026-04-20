@@ -445,7 +445,7 @@ public class GCDensityFunctions {
             // Within each cell in 3x3 grid, determine where the density function locations should be and then process contributions.
             for (int currCellX = minCellX; currCellX <= maxCellX; currCellX++) {
                 for (int currCellZ = minCellZ; currCellZ <= maxCellZ; currCellZ++) {
-                    long key = ((long) currCellX << 32) | (currCellZ & 0xFFFFFFFFL);    // cache key for cell position, want to guarantee uniqueness for cell (use long)
+                    long key = ChunkPos.asLong(currCellX, currCellZ);                   // cache key for cell position, want to guarantee uniqueness for cell (use long)
                     int seed = getSeedAtPos(currCellX, currCellZ);                      // each cell has unique seed to determine center placement
                     int idx = seed & 63;                                                // modulo 64 (size of cache) -- note seed is sufficiently scrambled to find in cache
                     if (cache.keys[idx] != key) {                                       // but keep long as key to verify two cells are really different
