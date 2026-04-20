@@ -237,7 +237,95 @@ public class GCDensityFunctions {
         }
     }
 
-    public static ShiftedNoise2dThreshold makeShiftedNoise2dThreshold(    // this exists because I need to pass the NoiseHolder to AccessibleShiftedNoise2d for it to see the NormalNoise
+    public static ShiftedDuneNoise makeShiftedDuneNoise(
+            double xzScale, Holder<NormalNoise.NoiseParameters> shiftNoise
+    ) {
+        return new ShiftedDuneNoise(xzScale, new DensityFunction.NoiseHolder(shiftNoise));
+    }
+
+    public static class ShiftedDuneNoise implements DensityFunction {
+        /*
+        To ensure repeatability, CircularDensityFunction placement is determined by dividing the world into square cells. Each cell has a unique coordinate that
+        is used to generate a seed. Placement of the CircularDensityFunction within the cell is randomized based on the seed. The buffer ensures a distance
+        between the center and the cell boundary. Final placement is conditional on whether the value of thresholdFunction is positive at that point.
+         */
+        private static final MapCodec<ShiftedDuneNoise> DATA_CODEC = RecordCodecBuilder.mapCodec(
+                instance -> instance.group(
+                                Codec.DOUBLE.fieldOf("xz_scale").forGetter(df -> df.xzScale),
+                                NormalNoise.NoiseParameters.CODEC.fieldOf("shift").forGetter(df -> df.shift.noiseData())
+                        )
+                        .apply(instance, GCDensityFunctions::makeShiftedDuneNoise)  // Google recommended storing the noiseData for the codec, so it has to be wrapped for the constructor
+        );
+        public static final KeyDispatchDataCodec<ShiftedDuneNoise> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
+        private final double xzScale;
+        private final NoiseHolder shift;
+        private final int defaultSpacing = 32;
+        private final double a = 1.0/((defaultSpacing * defaultSpacing) >> 2);      // coefficient to scale output to [0, 1]
+        private final double b = 0.04;                                              // scaling coefficient w/in [0, 1]
+        private final double c = 1.05;
+        private final double small = 0.001;
+
+        public ShiftedDuneNoise(double xzScale, NoiseHolder shift) {
+            this.xzScale = xzScale;
+            this.shift = shift;
+        }
+
+        private double duneNoise(int x, int z) {
+            int funcShift = defaultSpacing >> 1;
+            int xSample = x & (defaultSpacing - 1);     // modulo defaultSpacing
+            int zSample = z & (defaultSpacing - 1);
+            int xContrib = 1;
+            int zContrib = 0;
+            double xDunes = (xSample - c * funcShift) * (xSample - c * funcShift) * xContrib;
+            double zDunes = (zSample - c * funcShift) * (zSample - c * funcShift) * zContrib;
+            return b * a * (xDunes + zDunes) + small;
+        }
+
+        private double computeShift(double x, double y, double z) {
+            /*
+            See DensityFunctions.ShiftNoise. ShiftA and ShiftB both pass compute calls through this.
+             */
+            return this.shift.getValue(x * 0.25, y * 0.25, z * 0.25) * 4.0;
+        }
+
+        @Override
+        public double compute(FunctionContext context) {
+            int x = context.blockX();
+            int z = context.blockZ();
+            int xSample = (int) (x * this.xzScale + computeShift(x, 0, z));
+            int zSample = (int) (z * this.xzScale + computeShift(z, x, 0));
+            return duneNoise(xSample, zSample);
+        }
+
+        @Override
+        public void fillArray(double[] densities, ContextProvider applier) {
+            applier.fillAllDirectly(densities, this);
+        }
+
+        @Override
+        public @NotNull DensityFunction mapAll(Visitor visitor) {
+            return visitor.apply(
+                    new ShiftedDuneNoise(this.xzScale, visitor.visitNoise(this.shift))
+            );
+        }
+
+        @Override
+        public double minValue() {
+            return small;
+        }
+
+        @Override
+        public double maxValue() {
+            return b * a;
+        }
+
+        @Override
+        public @NotNull KeyDispatchDataCodec<? extends DensityFunction> codec() {
+            return CODEC;
+        }
+    }
+
+    public static ShiftedNoise2dThreshold makeShiftedNoise2dThreshold(    // this exists because I need to pass the NoiseHolder to ShiftedNoise2dThreshold for it to see the NormalNoise
             Holder<NormalNoise.NoiseParameters> sourceNoise, double xzScale, Holder<NormalNoise.NoiseParameters> shiftNoise, double threshold
     ) {
         return new ShiftedNoise2dThreshold(new DensityFunction.NoiseHolder(sourceNoise), xzScale, new DensityFunction.NoiseHolder(shiftNoise), threshold);
