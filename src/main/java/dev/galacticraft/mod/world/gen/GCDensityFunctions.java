@@ -261,7 +261,7 @@ public class GCDensityFunctions {
         private final NoiseHolder shift;
         private final int defaultSpacing = 32;
         private final double a = 1.0/((defaultSpacing * defaultSpacing) >> 2);      // coefficient to scale output to [0, 1]
-        private final double b = 0.04;                                              // scaling coefficient w/in [0, 1]
+        private final double b = 0.03;                                              // scaling coefficient w/in [0, 1]
         private final double c = 1.05;
         private final double small = 0.001;
 
@@ -284,8 +284,9 @@ public class GCDensityFunctions {
         private double computeShift(double x, double y, double z) {
             /*
             See DensityFunctions.ShiftNoise. ShiftA and ShiftB both pass compute calls through this.
+            Behaves like frequency and amplitude.
              */
-            return this.shift.getValue(x * 0.25, y * 0.25, z * 0.25) * 4.0;
+            return this.shift.getValue(x * 0.125, y * 0.125, z * 0.125) * 16.0;
         }
 
         @Override
