@@ -178,6 +178,22 @@ public class GCDensityFunctions {
         );
     }
 
+    public static DensityFunction clamp(DensityFunction function, double min, double max) {
+        return DensityFunctions.min(
+                DensityFunctions.max(function, DensityFunctions.constant(min)),
+                DensityFunctions.constant(max)
+        );
+    }
+
+    public static DensityFunction mapFromToNormalized(DensityFunction function, double fromMin, double fromMax) {
+        DensityFunction clampedShifted = DensityFunctions.add(GCDensityFunctions.clamp(function, fromMin, fromMax), DensityFunctions.constant(-fromMin));
+        return DensityFunctions.mul(clampedShifted, DensityFunctions.constant(1/(fromMax - fromMin)));
+    }
+
+    public static DensityFunction mapFromToRange(DensityFunction function, double fromMin, double fromMax, double toMin, double toMax) {
+        return DensityFunctions.lerp(mapFromToNormalized(function, fromMin, fromMax), DensityFunctions.constant(toMin), DensityFunctions.constant(toMax));
+    }
+
     public static CubicSpline<DensityFunctions.Spline.Point, DensityFunctions.Spline.Coordinate> largeCraterSplineBuilder(Holder<DensityFunction> circularDensityFunction) {
         return CubicSpline.builder(new DensityFunctions.Spline.Coordinate(circularDensityFunction))
                 .addPoint(0.0F, 0.0F)
@@ -238,9 +254,9 @@ public class GCDensityFunctions {
     }
 
     public static ShiftedDuneNoise makeShiftedDuneNoise(
-            double xzScale, Holder<NormalNoise.NoiseParameters> shiftNoise
+            DensityFunction scaleControlDF, DensityFunction directionControlDF, Holder<NormalNoise.NoiseParameters> shiftNoise
     ) {
-        return new ShiftedDuneNoise(xzScale, new DensityFunction.NoiseHolder(shiftNoise));
+        return new ShiftedDuneNoise(scaleControlDF, directionControlDF, new DensityFunction.NoiseHolder(shiftNoise));
     }
 
     public static class ShiftedDuneNoise implements DensityFunction {
@@ -251,34 +267,35 @@ public class GCDensityFunctions {
          */
         private static final MapCodec<ShiftedDuneNoise> DATA_CODEC = RecordCodecBuilder.mapCodec(
                 instance -> instance.group(
-                                Codec.DOUBLE.fieldOf("xz_scale").forGetter(df -> df.xzScale),
+                                DensityFunction.HOLDER_HELPER_CODEC.fieldOf("scale_control_DF").forGetter(df -> df.amplitudeControlDF),
+                                DensityFunction.HOLDER_HELPER_CODEC.fieldOf("direction_control_DF").forGetter(df -> df.directionControlDF),
                                 NormalNoise.NoiseParameters.CODEC.fieldOf("shift").forGetter(df -> df.shift.noiseData())
                         )
                         .apply(instance, GCDensityFunctions::makeShiftedDuneNoise)  // Google recommended storing the noiseData for the codec, so it has to be wrapped for the constructor
         );
         public static final KeyDispatchDataCodec<ShiftedDuneNoise> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
-        private final double xzScale;
+        private final DensityFunction amplitudeControlDF;
+        private final DensityFunction directionControlDF;
         private final NoiseHolder shift;
         private final int defaultSpacing = 32;
-        private final double a = 1.0/((defaultSpacing * defaultSpacing) >> 2);      // coefficient to scale output to [0, 1]
-        private final double b = 0.03;                                              // scaling coefficient w/in [0, 1]
-        private final double c = 1.05;
-        private final double small = 0.001;
+        private final double norm = 2.0 / defaultSpacing;   // coefficient to normalize curve to [0, 1]
+        private final double small = 0.001;                 // prevent crease at 0 contour
 
-        public ShiftedDuneNoise(double xzScale, NoiseHolder shift) {
-            this.xzScale = xzScale;
+        public ShiftedDuneNoise(DensityFunction amplitudeControlDF, DensityFunction directionControlDF, NoiseHolder shift) {
+            this.amplitudeControlDF = amplitudeControlDF;
+            this.directionControlDF = directionControlDF;
             this.shift = shift;
         }
 
-        private double duneNoise(int x, int z) {
+        private double duneCurve(int s) {
+            /*
+            Periodic function describing the shape of the dune profile in terms of direction-wise coordinate "s"
+             */
             int funcShift = defaultSpacing >> 1;
-            int xSample = x & (defaultSpacing - 1);     // modulo defaultSpacing
-            int zSample = z & (defaultSpacing - 1);
-            int xContrib = 1;
-            int zContrib = 0;
-            double xDunes = (xSample - c * funcShift) * (xSample - c * funcShift) * xContrib;
-            double zDunes = (zSample - c * funcShift) * (zSample - c * funcShift) * zContrib;
-            return b * a * (xDunes + zDunes) + small;
+            int xPeriodic = s & (defaultSpacing - 1);   // modulo defaultSpacing (if power of 2)
+            double l = norm * (xPeriodic - funcShift);
+            if (xPeriodic > funcShift) return l;    // softer curve -> wind direction is always toward increasing "s" -- maybe change this later
+            return l * l;                           // steeper curve on leeward side (quartic would be steeper)
         }
 
         private double computeShift(double x, double y, double z) {
@@ -289,13 +306,32 @@ public class GCDensityFunctions {
             return this.shift.getValue(x * 0.125, y * 0.125, z * 0.125) * 16.0;
         }
 
+        private double amplitude(FunctionContext context) {
+            /*
+            Amplitude controls dune height, so expect amplitudeControlNoise to be based on erosion.
+             */
+            return this.amplitudeControlDF.compute(context);
+        }
+
+        private double xContrib(FunctionContext context) {
+            /*
+            xContrib controls fraction of dune height based on x or z. Based on weirdness (arbitrary)
+            1 is dunes only vary in x, 0 is dunes only vary in z. 0.5 yields star shaped dunes
+            Note implementation in MarsTerrainProvider maps weirdness to [0, 1]
+             */
+            return this.directionControlDF.compute(context);
+        }
+
         @Override
         public double compute(FunctionContext context) {
             int x = context.blockX();
             int z = context.blockZ();
-            int xSample = (int) (x * this.xzScale + computeShift(x, 0, z));
-            int zSample = (int) (z * this.xzScale + computeShift(z, x, 0));
-            return duneNoise(xSample, zSample);
+            int xSample = (int) (x + computeShift(x, 0, z));
+            int zSample = (int) (z + computeShift(z, x, 0));    // this is correct
+            double xContrib = this.xContrib(context);
+            double xDunes = duneCurve(xSample) * xContrib;
+            double zDunes = duneCurve(zSample) * (1 - xContrib);
+            return this.amplitude(context) * (xDunes + zDunes) + small;
         }
 
         @Override
@@ -306,7 +342,7 @@ public class GCDensityFunctions {
         @Override
         public @NotNull DensityFunction mapAll(Visitor visitor) {
             return visitor.apply(
-                    new ShiftedDuneNoise(this.xzScale, visitor.visitNoise(this.shift))
+                    new ShiftedDuneNoise(amplitudeControlDF.mapAll(visitor), directionControlDF.mapAll(visitor), visitor.visitNoise(this.shift))
             );
         }
 
@@ -317,7 +353,7 @@ public class GCDensityFunctions {
 
         @Override
         public double maxValue() {
-            return b * a;
+            return this.amplitudeControlDF.maxValue();
         }
 
         @Override
