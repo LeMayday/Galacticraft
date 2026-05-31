@@ -368,6 +368,92 @@ public class GCDensityFunctions {
         return new ShiftedNoise2dThreshold(new DensityFunction.NoiseHolder(sourceNoise), xzScale, new DensityFunction.NoiseHolder(shiftNoise), threshold);
     }
 
+    public static class ShiftedNoise2dWrapper implements DensityFunction {
+        /*
+        DensityFunction equivalent to shiftedNoise2d, but wraps noise to allow sampling at specific coordinates or custom shifting instead of relying on FunctionContext.
+        Needed for DistributedCircularDensityFunction to sample threshold noise at circle centers and for ShiftedDuneNoise to offset 2nd wind direction noise.
+         */
+        private static final MapCodec<ShiftedNoise2dWrapper> DATA_CODEC = RecordCodecBuilder.mapCodec(
+                instance -> instance.group(
+                                NormalNoise.NoiseParameters.CODEC.fieldOf("source").forGetter(df -> df.source.noiseData()), // uses lambda function to get variable
+                                Codec.DOUBLE.fieldOf("xz_scale").forGetter(df -> df.xzScale),
+                                NormalNoise.NoiseParameters.CODEC.fieldOf("shift").forGetter(df -> df.shift.noiseData())
+                        )
+                        .apply(instance, ShiftedNoise2dWrapper::new)    // Google recommended storing the noiseData for the codec, so it has to be wrapped for the constructor
+        );
+        public static final KeyDispatchDataCodec<ShiftedNoise2dWrapper> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
+        public static final Codec<ShiftedNoise2dWrapper> SUBCLASS_CODEC = DensityFunction.HOLDER_HELPER_CODEC.xmap(
+                df -> {
+                    if (df instanceof DensityFunctions.HolderHolder holder) {   // Minecraft passes through a HolderHolder, which must be unwrapped first
+                        df = holder.function().value();
+                    }
+                    return (ShiftedNoise2dWrapper) df;},
+                df -> df
+        );
+        public final NoiseHolder source;
+        public final double xzScale;
+        public final NoiseHolder shift;
+
+        public ShiftedNoise2dWrapper(Holder<NormalNoise.NoiseParameters> sourceNoise, double xzScale, Holder<NormalNoise.NoiseParameters> shiftNoise) {
+            this(new NoiseHolder(sourceNoise), xzScale, new NoiseHolder(shiftNoise));
+        }
+
+        private ShiftedNoise2dWrapper(NoiseHolder source, double xzScale, NoiseHolder shift) {
+            this.source = source;
+            this.xzScale = xzScale;
+            this.shift = shift;
+        }
+
+        private double computeShift(double x, double y, double z) {
+            /*
+            See DensityFunctions.ShiftNoise. ShiftA and ShiftB both pass compute calls through this.
+             */
+            return this.shift.getValue(x * 0.25, y * 0.25, z * 0.25) * 4.0;
+        }
+
+        public double computeAt(int x, int z) {
+            /*
+            See DensityFunctions.ShiftedNoise and ShiftA and ShiftB. As defined for shiftedNoise2d, shiftY and yScale are both 0.
+             */
+            double xSample = x * this.xzScale + computeShift(x, 0, z);
+            double zSample = z * this.xzScale + computeShift(z, x, 0);
+            return this.source.getValue(xSample, 0, zSample);
+        }
+
+        @Override
+        public double compute(FunctionContext context) {
+            return computeAt(context.blockX(), context.blockZ());
+        }
+
+        @Override
+        public void fillArray(double[] densities, ContextProvider applier) {
+            applier.fillAllDirectly(densities, this);
+        }
+
+        @Override
+        public @NotNull DensityFunction mapAll(Visitor visitor) {
+            return visitor.apply(
+                    new ShiftedNoise2dWrapper(visitor.visitNoise(this.source), this.xzScale, visitor.visitNoise(this.shift))
+            );
+        }
+
+        @Override
+        public double minValue() {
+            return -this.maxValue();
+        }
+
+        @Override
+        public double maxValue() {
+            return this.source.maxValue();
+        }
+
+        @Override
+        public @NotNull KeyDispatchDataCodec<? extends DensityFunction> codec() {
+            return CODEC;
+        }
+
+    }
+
     public record ShiftedNoise2dThreshold(NoiseHolder source, double xzScale, NoiseHolder shift, double threshold) implements DensityFunction {
         /*
         See DensityFunctions.ShiftedNoise. This is a wrapper for ShiftedNoise (such as is used to store terrain noises like erosion or weirdness) that allows noise to be calculated
