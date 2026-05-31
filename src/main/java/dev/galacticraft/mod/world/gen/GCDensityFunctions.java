@@ -253,85 +253,77 @@ public class GCDensityFunctions {
         }
     }
 
-    public static ShiftedDuneNoise makeShiftedDuneNoise(
-            DensityFunction scaleControlDF, DensityFunction directionControlDF, Holder<NormalNoise.NoiseParameters> shiftNoise
-    ) {
-        return new ShiftedDuneNoise(scaleControlDF, directionControlDF, new DensityFunction.NoiseHolder(shiftNoise));
-    }
-
-    public static class ShiftedDuneNoise implements DensityFunction {
+    public static class DuneDensityFunction implements DensityFunction {
         /*
-        To ensure repeatability, CircularDensityFunction placement is determined by dividing the world into square cells. Each cell has a unique coordinate that
-        is used to generate a seed. Placement of the CircularDensityFunction within the cell is randomized based on the seed. The buffer ensures a distance
-        between the center and the cell boundary. Final placement is conditional on whether the value of thresholdFunction is positive at that point.
+        Dune ridges form where there is a prevailing wind direction, or in this case, along contours of constant DuneWind noise.
+        duneNoise1 is preferred, and duneNoise2 is selected when duneNoise1 is near an extremum. This also enables star dunes (formed by different prevailing wind directions).
          */
-        private static final MapCodec<ShiftedDuneNoise> DATA_CODEC = RecordCodecBuilder.mapCodec(
+        private static final MapCodec<DuneDensityFunction> DATA_CODEC = RecordCodecBuilder.mapCodec(
                 instance -> instance.group(
-                                DensityFunction.HOLDER_HELPER_CODEC.fieldOf("scale_control_DF").forGetter(df -> df.amplitudeControlDF),
-                                DensityFunction.HOLDER_HELPER_CODEC.fieldOf("direction_control_DF").forGetter(df -> df.directionControlDF),
-                                NormalNoise.NoiseParameters.CODEC.fieldOf("shift").forGetter(df -> df.shift.noiseData())
+                                DuneWind.SUBCLASS_CODEC.fieldOf("dune_noise1").forGetter(df -> df.duneNoise1),
+                                DuneWind.SUBCLASS_CODEC.fieldOf("dune_noise2").forGetter(df -> df.duneNoise2),
+                                DensityFunction.HOLDER_HELPER_CODEC.fieldOf("amplitude_control_DF").forGetter(df -> df.amplitudeControlDF)
                         )
-                        .apply(instance, GCDensityFunctions::makeShiftedDuneNoise)  // Google recommended storing the noiseData for the codec, so it has to be wrapped for the constructor
+                        .apply(instance, DuneDensityFunction::new)  // Google recommended storing the noiseData for the codec, so it has to be wrapped for the constructor
         );
-        public static final KeyDispatchDataCodec<ShiftedDuneNoise> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
+        public static final KeyDispatchDataCodec<DuneDensityFunction> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
+        private final DuneWind duneNoise1;
+        private final DuneWind duneNoise2;
         private final DensityFunction amplitudeControlDF;
-        private final DensityFunction directionControlDF;
-        private final NoiseHolder shift;
-        private final int defaultSpacing = 32;
-        private final double norm = 2.0 / defaultSpacing;   // coefficient to normalize curve to [0, 1]
-        private final double small = 0.001;                 // prevent crease at 0 contour
+        private final double small = 0.001;     // prevent crease at 0 contour
+        private final double invDuneNoise1Amplitude;
 
-        public ShiftedDuneNoise(DensityFunction amplitudeControlDF, DensityFunction directionControlDF, NoiseHolder shift) {
+        public DuneDensityFunction(
+                DuneWind duneNoise1, DuneWind duneNoise2,   // two possible wind directions (these also encode scale)
+                DensityFunction amplitudeControlDF          // amplitude controls dune height
+        ) {
+            this.duneNoise1 = duneNoise1;
+            this.duneNoise2 = duneNoise2;
             this.amplitudeControlDF = amplitudeControlDF;
-            this.directionControlDF = directionControlDF;
-            this.shift = shift;
+            this.invDuneNoise1Amplitude = 1 / duneNoise1.maxValue();
         }
 
-        private double duneCurve(int s) {
+        private double duneCurve(double s) {
             /*
-            Periodic function describing the shape of the dune profile in terms of direction-wise coordinate "s"
+            Dune profile on [0, 1] in terms of direction-wise coordinate "s"
              */
-            int funcShift = defaultSpacing >> 1;
-            int xPeriodic = s & (defaultSpacing - 1);   // modulo defaultSpacing (if power of 2)
-            double l = norm * (xPeriodic - funcShift);
-            if (xPeriodic > funcShift) return l;    // softer curve -> wind direction is always toward increasing "s" -- maybe change this later
-            return l * l;                           // steeper curve on leeward side (quartic would be steeper)
-        }
-
-        private double computeShift(double x, double y, double z) {
-            /*
-            See DensityFunctions.ShiftNoise. ShiftA and ShiftB both pass compute calls through this.
-            Behaves like frequency and amplitude.
-             */
-            return this.shift.getValue(x * 0.125, y * 0.125, z * 0.125) * 16.0;
+            if (s < 0 || s > 1) throw new IllegalArgumentException("s must be in [0, 1].");
+            double l = 2 * s - 1;   // linear component, normalized to [0, 1] on [0.5, 1]
+            if (s > 0.5) return l;  // softer curve in windward direction (increasing "s")
+            return l * l;           // steeper curve on leeward side (quartic would be steeper)
         }
 
         private double amplitude(FunctionContext context) {
-            /*
-            Amplitude controls dune height, so expect amplitudeControlNoise to be based on erosion.
-             */
             return this.amplitudeControlDF.compute(context);
         }
 
-        private double xContrib(FunctionContext context) {
+        private double easeCurve(double x) {
+            // ease curve adapted from https://adrianb.io/2014/08/09/perlinnoise.html
+            double x3 = x * x * x;
+            return 6 * x * x * x3 - 15 * x * x3 + 10 * x3;
+        }
+
+        private double dune1Contrib(double normalizedDuneNoise1) {
             /*
-            xContrib controls fraction of dune height based on x or z. Based on weirdness (arbitrary)
-            1 is dunes only vary in x, 0 is dunes only vary in z. 0.5 yields star shaped dunes
-            Note implementation in MarsTerrainProvider maps weirdness to [0, 1]
+            dune1Contrib controls fraction of dune height based on duneNoise1 or duneNoise2
+            Requires noise value normalized to [-1,1]
+            Intermediate values should yield star shaped dunes (multiple prevailing wind directions)
              */
-            return this.directionControlDF.compute(context);
+            double absD1A = Math.abs(normalizedDuneNoise1);
+            // a = 0.25 (where curve starts descending), b = 0.8 (where curve reaches 0)
+            if (absD1A < 0.25) return 1.0;
+            else if (absD1A > 0.8) return 0.0;
+            return easeCurve(1.81818181818 * (0.8 - absD1A));   // coefficient is 1 / (b - a)
         }
 
         @Override
         public double compute(FunctionContext context) {
-            int x = context.blockX();
-            int z = context.blockZ();
-            int xSample = (int) (x + computeShift(x, 0, z));
-            int zSample = (int) (z + computeShift(z, x, 0));    // this is correct
-            double xContrib = this.xContrib(context);
-            double xDunes = duneCurve(xSample) * xContrib;
-            double zDunes = duneCurve(zSample) * (1 - xContrib);
-            return this.amplitude(context) * (xDunes + zDunes) + small;
+            double n1 = duneNoise1.compute(context);
+            double n2 = duneNoise2.compute(context);
+            double dune1Contrib = dune1Contrib(n1 * invDuneNoise1Amplitude);
+            double dunes1 = duneCurve(n1 - Mth.floor(n1)) * dune1Contrib;
+            double dunes2 = duneCurve(n2 - Mth.floor(n2)) * (1 - dune1Contrib);
+            return this.amplitude(context) * (dunes1 + dunes2) + small;
         }
 
         @Override
@@ -342,7 +334,7 @@ public class GCDensityFunctions {
         @Override
         public @NotNull DensityFunction mapAll(Visitor visitor) {
             return visitor.apply(
-                    new ShiftedDuneNoise(amplitudeControlDF.mapAll(visitor), directionControlDF.mapAll(visitor), visitor.visitNoise(this.shift))
+                    new DuneDensityFunction((DuneWind) duneNoise1.mapAll(visitor), (DuneWind) duneNoise2.mapAll(visitor), amplitudeControlDF.mapAll(visitor))
             );
         }
 
@@ -360,12 +352,6 @@ public class GCDensityFunctions {
         public @NotNull KeyDispatchDataCodec<? extends DensityFunction> codec() {
             return CODEC;
         }
-    }
-
-    public static DCDFThreshold makeDCDFThreshold(    // this exists because I need to pass the NoiseHolder to ShiftedNoise2dThreshold for it to see the NormalNoise
-            Holder<NormalNoise.NoiseParameters> sourceNoise, double xzScale, Holder<NormalNoise.NoiseParameters> shiftNoise, double threshold
-    ) {
-        return new DCDFThreshold(new DensityFunction.NoiseHolder(sourceNoise), xzScale, new DensityFunction.NoiseHolder(shiftNoise), threshold);
     }
 
     public static abstract class ShiftedNoise2dWrapper implements DensityFunction {
@@ -462,7 +448,7 @@ public class GCDensityFunctions {
             Since this is the underlying Perlin noise, there will be extrema where pattern will break down. Let T be 2^octave (period) of Perlin noise,
             S be scale (blocks), N be # of dune ridges you'd want to see contiguously (more than a few, not too many), and P be some fuzziness factor (% of amplitude, as fraction of 1)
             that represents what fraction of the amplitude to capture to avoid extrema. Then T should be greater than PI * S / (2 * P) * ceil(N / 2).
-            This is not enforced explicitly.
+            This is not enforced explicitly. See https://adrianb.io/2014/08/09/perlinnoise.html for how to calculate T
              */
             super(source, 1.0, shift);
             this.scale = scale;                                                 // scale is roughly the spacing between dune ridges (in blocks)
@@ -503,6 +489,12 @@ public class GCDensityFunctions {
         }
 
     }
+
+    public static DCDFThreshold makeDCDFThreshold(
+            Holder<NormalNoise.NoiseParameters> sourceNoise, double xzScale, Holder<NormalNoise.NoiseParameters> shiftNoise, double threshold
+    ) {
+        return new DCDFThreshold(new DensityFunction.NoiseHolder(sourceNoise), xzScale, new DensityFunction.NoiseHolder(shiftNoise), threshold);
+    }   // this exists because I need to pass the NoiseHolder to ShiftedNoise2dThreshold for it to see the NormalNoise
 
     public static class DCDFThreshold extends ShiftedNoise2dWrapper {
         /*

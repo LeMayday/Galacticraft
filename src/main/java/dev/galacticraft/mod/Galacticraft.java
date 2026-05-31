@@ -125,7 +125,7 @@ public class Galacticraft implements ModInitializer {
                 GCDensityFunctions.DistributedCircularDensityFunction.CODEC.codec()
         );
         Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE,
-                ResourceLocation.fromNamespaceAndPath(Constant.MOD_ID, "accessible_shifted_2d_noise"),
+                ResourceLocation.fromNamespaceAndPath(Constant.MOD_ID, "DCDF_threshold"),
                 GCDensityFunctions.DCDFThreshold.CODEC.codec()
         );
         Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE,
@@ -133,8 +133,12 @@ public class Galacticraft implements ModInitializer {
                 GCDensityFunctions.DifferentScaledNoise.CODEC.codec()
         );
         Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE,
-                ResourceLocation.fromNamespaceAndPath(Constant.MOD_ID, "shifted_dune_noise"),
-                GCDensityFunctions.ShiftedDuneNoise.CODEC.codec()
+                ResourceLocation.fromNamespaceAndPath(Constant.MOD_ID, "dune_wind"),
+                GCDensityFunctions.DuneWind.CODEC.codec()
+        );
+        Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE,
+                ResourceLocation.fromNamespaceAndPath(Constant.MOD_ID, "dune_density_function"),
+                GCDensityFunctions.DuneDensityFunction.CODEC.codec()
         );
         Constant.LOGGER.info("Initialization complete. (Took {}ms).", System.currentTimeMillis() - startInitTime);
     }
