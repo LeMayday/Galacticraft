@@ -35,6 +35,7 @@ public class GCNoiseData {
 
     public static final ResourceKey<NormalNoise.NoiseParameters> MARS_HIGHLAND = createKey("mars/mars_highland");
     public static final ResourceKey<NormalNoise.NoiseParameters> MARS_DUNES = createKey("mars/mars_dunes");
+    public static final ResourceKey<NormalNoise.NoiseParameters> MARS_DUNES_TEST = createKey("mars/mars_dunes_test");
     public static final ResourceKey<NormalNoise.NoiseParameters> MARS_LOWLAND = createKey("mars/mars_lowland");
     public static final ResourceKey<NormalNoise.NoiseParameters> CERBERUS_FLOWS = createKey("mars/cerberus_flows");
 
@@ -46,6 +47,7 @@ public class GCNoiseData {
 //        register(context, EROSION, -11, 1, 1, 0, 1, 1);
 //        register(context, BASALT_MARE, 5, 0, 0.1, 0.2, 0.1, 0, 0, 0, 0);
 //        register(context, BASALT_MARE_HEIGHT, -12, 0.3);
+        register(context, MARS_DUNES_TEST, -10, 1.0);
         register(context, MARS_DUNES, -5, 0.06);
         register(context, MARS_HIGHLAND, -9, 2, 0.5, 0.25, 0.125, 0.063);
         register(context, MARS_LOWLAND, -9, 1, 0.5, 0.25, 0.2, 0.1);

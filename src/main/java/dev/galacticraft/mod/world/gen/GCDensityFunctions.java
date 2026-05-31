@@ -405,14 +405,14 @@ public class GCDensityFunctions {
             /*
             See DensityFunctions.ShiftedNoise and ShiftA and ShiftB. As defined for shiftedNoise2d, shiftY and yScale are both 0.
              */
-            double xSample = x * this.xzScale + computeShift(x, 0, z);
-            double zSample = z * this.xzScale + computeShift(z, x, 0);
+            double xSample = x * this.xzScale + this.computeShift(x, 0, z);
+            double zSample = z * this.xzScale + this.computeShift(z, x, 0); // this is correct
             return this.source.getValue(xSample, 0, zSample);
         }
 
         @Override
         public double compute(FunctionContext context) {
-            return computeAt(context.blockX(), context.blockZ());
+            return this.computeAt(context.blockX(), context.blockZ());
         }
 
         @Override
@@ -432,6 +432,78 @@ public class GCDensityFunctions {
 
     }
 
+    public static class DuneWind extends ShiftedNoise2dWrapper {
+        /*
+        Implementation of ShiftedNoise2dWrapper for ShiftedDuneNoise. Wind direction is essentially the gradient of this noise function (perp to contours).
+        Dune ridges form where there is a prevailing wind direction, or in this case, along contours of constant noise.
+         */
+        private static final MapCodec<DuneWind> DATA_CODEC = RecordCodecBuilder.mapCodec(
+                instance -> instance.group(
+                                NormalNoise.NoiseParameters.CODEC.fieldOf("source").forGetter(df -> df.source.noiseData()),
+                                NormalNoise.NoiseParameters.CODEC.fieldOf("shift").forGetter(df -> df.shift.noiseData()),
+                                Codec.DOUBLE.fieldOf("scale").forGetter(df -> df.scale),
+                                Codec.INT.fieldOf("offset").forGetter(df -> df.offset)
+                        )
+                        .apply(instance, DuneWind::new)
+        );
+        public static final KeyDispatchDataCodec<DuneWind> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
+        public static final Codec<DuneWind> SUBCLASS_CODEC = createSubclassCodec(DuneWind.class);
+        private final double scale;
+        private final int offset;
+        private final double amplitude;
+
+        public DuneWind(Holder<NormalNoise.NoiseParameters> sourceNoise, Holder<NormalNoise.NoiseParameters> shiftNoise, double scale, int offset) {
+            this(new NoiseHolder(sourceNoise), new NoiseHolder(shiftNoise), scale, offset);
+        }
+
+        private DuneWind(NoiseHolder source, NoiseHolder shift, double scale, int offset) {
+            /*
+            The pattern in the DuneNoise class relies on the function being monotonic, at least on the domain where it is sampled.
+            Since this is the underlying Perlin noise, there will be extrema where pattern will break down. Let T be 2^octave (period) of Perlin noise,
+            S be scale (blocks), N be # of dune ridges you'd want to see contiguously (more than a few, not too many), and P be some fuzziness factor (% of amplitude, as fraction of 1)
+            that represents what fraction of the amplitude to capture to avoid extrema. Then T should be greater than PI * S / (2 * P) * ceil(N / 2).
+            This is not enforced explicitly.
+             */
+            super(source, 1.0, shift);
+            this.scale = scale;                                                 // scale is roughly the spacing between dune ridges (in blocks)
+            this.offset = offset;                                               // fixed value to offset the (x,z) position of noise
+            int octave = Mth.abs(source.noiseData().value().firstOctave());     // this MUST match octave in GCNoiseData for underlying noise
+            this.amplitude = (2 << octave) / Mth.PI / scale;                    // rescales noise to ensure approximately 1 ridge per scale (slope 1/scale)
+        }
+
+        @Override
+        protected double computeShift(double x, double y, double z) {
+            /*
+            See DensityFunctions.ShiftNoise. ShiftA and ShiftB both pass compute calls through this.
+            Redefine for dunes. Behaves like frequency and amplitude.
+             */
+            return this.shift.getValue(x * 0.125, y * 0.125, z * 0.125) * 16.0;
+        }
+
+        @Override
+        public double computeAt(int x, int z) {
+            return super.computeAt(x - offset, z - offset) * amplitude;
+        }
+
+        @Override
+        public @NotNull DensityFunction mapAll(Visitor visitor) {
+            return visitor.apply(
+                    new DuneWind(visitor.visitNoise(this.source), visitor.visitNoise(this.shift), this.scale, this.offset)
+            );
+        }
+
+        @Override
+        public double maxValue() {
+            return super.maxValue() * this.amplitude;
+        }
+
+        @Override
+        public @NotNull KeyDispatchDataCodec<? extends DensityFunction> codec() {
+            return CODEC;
+        }
+
+    }
+
     public static class DCDFThreshold extends ShiftedNoise2dWrapper {
         /*
         Implementation of ShiftedNoise2dWrapper for DistributedCircularDensityFunction
@@ -441,7 +513,7 @@ public class GCDensityFunctions {
                                 NormalNoise.NoiseParameters.CODEC.fieldOf("source").forGetter(df -> df.source.noiseData()),
                                 Codec.DOUBLE.fieldOf("xz_scale").forGetter(df -> df.xzScale),
                                 NormalNoise.NoiseParameters.CODEC.fieldOf("shift").forGetter(df -> df.shift.noiseData()),
-                                Codec.DOUBLE.fieldOf("value_shift").forGetter(df -> df.threshold)
+                                Codec.DOUBLE.fieldOf("threshold").forGetter(df -> df.threshold)
                         )
                         .apply(instance, DCDFThreshold::new)
         );
