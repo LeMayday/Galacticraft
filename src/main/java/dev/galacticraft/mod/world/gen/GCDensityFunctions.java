@@ -262,7 +262,7 @@ public class GCDensityFunctions {
                 instance -> instance.group(
                                 DuneWind.SUBCLASS_CODEC.fieldOf("dune_noise1").forGetter(df -> df.duneNoise1),
                                 DuneWind.SUBCLASS_CODEC.fieldOf("dune_noise2").forGetter(df -> df.duneNoise2),
-                                DensityFunction.HOLDER_HELPER_CODEC.fieldOf("amplitude_control_DF").forGetter(df -> df.amplitudeControlDF)
+                                DensityFunction.HOLDER_HELPER_CODEC.fieldOf("amplitude_control_df").forGetter(df -> df.amplitudeControlDF)
                         )
                         .apply(instance, DuneDensityFunction::new)  // Google recommended storing the noiseData for the codec, so it has to be wrapped for the constructor
         );
@@ -427,22 +427,22 @@ public class GCDensityFunctions {
                 instance -> instance.group(
                                 NormalNoise.NoiseParameters.CODEC.fieldOf("source").forGetter(df -> df.source.noiseData()),
                                 NormalNoise.NoiseParameters.CODEC.fieldOf("shift").forGetter(df -> df.shift.noiseData()),
-                                Codec.DOUBLE.fieldOf("scale").forGetter(df -> df.scale),
+                                Codec.INT.fieldOf("scale").forGetter(df -> df.scale),
                                 Codec.INT.fieldOf("offset").forGetter(df -> df.offset)
                         )
                         .apply(instance, DuneWind::new)
         );
         public static final KeyDispatchDataCodec<DuneWind> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
         public static final Codec<DuneWind> SUBCLASS_CODEC = createSubclassCodec(DuneWind.class);
-        private final double scale;
+        private final int scale;
         private final int offset;
         private final double amplitude;
 
-        public DuneWind(Holder<NormalNoise.NoiseParameters> sourceNoise, Holder<NormalNoise.NoiseParameters> shiftNoise, double scale, int offset) {
+        public DuneWind(Holder<NormalNoise.NoiseParameters> sourceNoise, Holder<NormalNoise.NoiseParameters> shiftNoise, int scale, int offset) {
             this(new NoiseHolder(sourceNoise), new NoiseHolder(shiftNoise), scale, offset);
         }
 
-        private DuneWind(NoiseHolder source, NoiseHolder shift, double scale, int offset) {
+        private DuneWind(NoiseHolder source, NoiseHolder shift, int scale, int offset) {
             /*
             The pattern in the DuneNoise class relies on the function being monotonic, at least on the domain where it is sampled.
             Since this is the underlying Perlin noise, there will be extrema where pattern will break down. Let T be 2^octave (period) of Perlin noise,
@@ -453,8 +453,8 @@ public class GCDensityFunctions {
             super(source, 1.0, shift);
             this.scale = scale;                                                 // scale is roughly the spacing between dune ridges (in blocks)
             this.offset = offset;                                               // fixed value to offset the (x,z) position of noise
-            int octave = Mth.abs(source.noiseData().value().firstOctave());     // this MUST match octave in GCNoiseData for underlying noise
-            this.amplitude = (2 << octave) / Mth.PI / scale;                    // rescales noise to ensure approximately 1 ridge per scale (slope 1/scale)
+            int octave = 10;                                                    // this MUST match octave in GCNoiseData for underlying noise (cannot grab noiseData().value() during initialization)
+            this.amplitude = (2 << octave) / (Mth.PI * scale);                  // rescales noise to ensure approximately 1 ridge per scale (slope 1/scale)
         }
 
         @Override

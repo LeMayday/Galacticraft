@@ -125,7 +125,7 @@ public class Galacticraft implements ModInitializer {
                 GCDensityFunctions.DistributedCircularDensityFunction.CODEC.codec()
         );
         Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE,
-                ResourceLocation.fromNamespaceAndPath(Constant.MOD_ID, "DCDF_threshold"),
+                ResourceLocation.fromNamespaceAndPath(Constant.MOD_ID, "dcdf_threshold"),
                 GCDensityFunctions.DCDFThreshold.CODEC.codec()
         );
         Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE,
