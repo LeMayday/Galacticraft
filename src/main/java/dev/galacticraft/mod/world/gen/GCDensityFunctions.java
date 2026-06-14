@@ -271,7 +271,6 @@ public class GCDensityFunctions {
         private final DuneWind duneNoise2;
         private final DensityFunction amplitudeControlDF;
         private final double small = 0.001;     // prevent crease at 0 contour
-        private final double invDuneNoise1Amplitude;
 
         public DuneDensityFunction(
                 DuneWind duneNoise1, DuneWind duneNoise2,   // two possible wind directions (these also encode scale)
@@ -280,7 +279,6 @@ public class GCDensityFunctions {
             this.duneNoise1 = duneNoise1;
             this.duneNoise2 = duneNoise2;
             this.amplitudeControlDF = amplitudeControlDF;
-            this.invDuneNoise1Amplitude = 1 / duneNoise1.maxValue();
         }
 
         private double duneCurve(double s) {
@@ -297,30 +295,11 @@ public class GCDensityFunctions {
             return this.amplitudeControlDF.compute(context);
         }
 
-        private double easeCurve(double x) {
-            // ease curve adapted from https://adrianb.io/2014/08/09/perlinnoise.html
-            double x3 = x * x * x;
-            return 6 * x * x * x3 - 15 * x * x3 + 10 * x3;
-        }
-
-        private double dune1Contrib(double normalizedDuneNoise1) {
-            /*
-            dune1Contrib controls fraction of dune height based on duneNoise1 or duneNoise2
-            Requires noise value normalized to [-1,1]
-            Intermediate values should yield star shaped dunes (multiple prevailing wind directions)
-             */
-            double absD1A = Math.abs(normalizedDuneNoise1);
-            // a = 0.25 (where curve starts descending), b = 0.8 (where curve reaches 0)
-            if (absD1A < 0.25) return 1.0;
-            else if (absD1A > 0.8) return 0.0;
-            return easeCurve(1.81818181818 * (0.8 - absD1A));   // coefficient is 1 / (b - a)
-        }
-
         @Override
         public double compute(FunctionContext context) {
             double n1 = duneNoise1.compute(context);
             double n2 = duneNoise2.compute(context);
-            double dune1Contrib = dune1Contrib(n1 * invDuneNoise1Amplitude);
+            double dune1Contrib = 0.5;
             double dunes1 = duneCurve(n1 - Mth.floor(n1)) * dune1Contrib;
             double dunes2 = duneCurve(n2 - Mth.floor(n2)) * (1 - dune1Contrib);
             return this.amplitude(context) * (dunes1 + dunes2) + small;
