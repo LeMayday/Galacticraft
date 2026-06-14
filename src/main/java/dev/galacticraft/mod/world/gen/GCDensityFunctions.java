@@ -195,14 +195,20 @@ public class GCDensityFunctions {
     }
 
     public static CubicSpline<DensityFunctions.Spline.Point, DensityFunctions.Spline.Coordinate> largeCraterSplineBuilder(Holder<DensityFunction> circularDensityFunction) {
+        // see https://www.desmos.com/calculator/dxkoluhsvo for how I got these numbers
+        // works best with r/R_nom in [0.95, 1.03]
         return CubicSpline.builder(new DensityFunctions.Spline.Coordinate(circularDensityFunction))
-                .addPoint(0.0F, 0.0F)
-                .addPoint(0.05F, 0.05F)
-                .addPoint(0.2F, -0.5F)
-                .addPoint(0.45F, -0.7F)
-                .addPoint(0.8F, -0.75F)
-                .addPoint(0.9F, -0.6F)
-                .addPoint(1.1F, -0.5F)
+                .addPoint(0.00F, 0.00F)
+                .addPoint(0.10F, 0.03F)
+                .addPoint(0.15F, 0.02F)
+                .addPoint(0.40F, -0.25F)
+                .addPoint(0.60F, -0.45F)
+                .addPoint(0.80F, -0.54F)
+                .addPoint(1.00F, -0.57F)
+                .addPoint(1.02F, -0.53F)
+                .addPoint(1.04F, -0.46F)
+                .addPoint(1.06F, -0.33F, 1.0F)
+                .addPoint(1.10F, -0.25F)
                 .build();
     }
 

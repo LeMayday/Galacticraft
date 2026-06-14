@@ -27,10 +27,7 @@ import net.minecraft.core.HolderGetter;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.data.worldgen.BootstrapContext;
 import net.minecraft.util.CubicSpline;
-import net.minecraft.world.level.levelgen.DensityFunction;
-import net.minecraft.world.level.levelgen.DensityFunctions;
-import net.minecraft.world.level.levelgen.NoiseRouterData;
-import net.minecraft.world.level.levelgen.Noises;
+import net.minecraft.world.level.levelgen.*;
 // See net.minecraft.data.worldgen.TerrainProvider;
 
 public class MarsTerrainProvider {
@@ -133,12 +130,16 @@ public class MarsTerrainProvider {
     }
 
     private static CubicSpline<DensityFunctions.Spline.Point, DensityFunctions.Spline.Coordinate> shieldVolcanoSplineBuilder(Holder<DensityFunction> input) {
+        // see https://www.desmos.com/calculator/e7dyvh7dy1 for how I got these numbers
+        // works best with r/R_nom in [1.02, 1.05]
         return CubicSpline.builder(new DensityFunctions.Spline.Coordinate(input))
-                .addPoint(0.0F, 0.0F)
-                .addPoint(0.05F, 0.1F, 0.25F)
-                .addPoint(0.7F, 0.5F, 0.25F)
-                .addPoint(0.9F, 0.8F)
-                .addPoint(1.0F, 1.0F)
+                .addPoint(0.00F, 0.00F)
+                .addPoint(0.50F, 0.25F)
+                .addPoint(0.70F, 0.40F)
+                .addPoint(1.00F, 0.75F)
+                .addPoint(1.03F, 0.68F)
+                .addPoint(1.06F, 0.65F)
+                .addPoint(1.09F, 0.62F)
                 .build();
     }
 
