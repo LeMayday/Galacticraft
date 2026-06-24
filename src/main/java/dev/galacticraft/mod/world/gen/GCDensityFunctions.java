@@ -305,9 +305,8 @@ public class GCDensityFunctions {
         public double compute(FunctionContext context) {
             double n1 = duneNoise1.compute(context);
             double n2 = duneNoise2.compute(context);
-            double dune1Contrib = 0.5;
-            double dunes1 = duneCurve(n1 - Mth.floor(n1)) * dune1Contrib;
-            double dunes2 = duneCurve(n2 - Mth.floor(n2)) * (1 - dune1Contrib);
+            double dunes1 = duneCurve(n1 - Mth.floor(n1)) * 0.5;    // 0.5 is contribution of dune1
+            double dunes2 = duneCurve(n2 - Mth.floor(n2)) * 0.5;    // 1 - 0.5 is contribution of dune2
             return this.amplitude(context) * (dunes1 + dunes2) + small;
         }
 
