@@ -474,12 +474,6 @@ public class GCDensityFunctions {
 
     }
 
-    public static DCDFThreshold makeDCDFThreshold(
-            Holder<NormalNoise.NoiseParameters> sourceNoise, double xzScale, Holder<NormalNoise.NoiseParameters> shiftNoise, double threshold
-    ) {
-        return new DCDFThreshold(new DensityFunction.NoiseHolder(sourceNoise), xzScale, new DensityFunction.NoiseHolder(shiftNoise), threshold);
-    }   // this exists because I need to pass the NoiseHolder to ShiftedNoise2dThreshold for it to see the NormalNoise
-
     public static class DCDFThreshold extends ShiftedNoise2dWrapper {
         /*
         Implementation of ShiftedNoise2dWrapper for DistributedCircularDensityFunction
