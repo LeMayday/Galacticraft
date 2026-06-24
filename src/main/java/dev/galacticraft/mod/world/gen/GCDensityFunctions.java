@@ -541,54 +541,60 @@ public class GCDensityFunctions {
                                 DCDFThreshold.SUBCLASS_CODEC.optionalFieldOf("threshold_function_2").forGetter(df -> Optional.ofNullable(df.thresholdFunction2)),
                                 Codec.INT.fieldOf("cell_size_exp").forGetter(df -> df.cellSizeExp),
                                 Codec.INT.fieldOf("buffer").forGetter(df -> df.buffer),
-                                Codec.INT.fieldOf("radius_lower").forGetter(df -> df.radiusLower),
-                                Codec.INT.fieldOf("radius_upper").forGetter(df -> df.radiusUpper),
-                                Codec.INT.fieldOf("nom_radius").forGetter(df -> df.nomRadius)
+                                Codec.FLOAT.fieldOf("radius_lower").forGetter(df -> df.rFracLower),
+                                Codec.FLOAT.fieldOf("radius_upper").forGetter(df -> df.rFracUpper),
+                                Codec.INT.fieldOf("nom_radius_lower").forGetter(df -> df.nomRadiusLower),
+                                Codec.INT.fieldOf("nom_radius_upper").forGetter(df -> df.nomRadiusUpper)
                         )   // second thresholdFunction must be optional since it can be null
-                        .apply(instance, (tf1, tf2, cse, b, rl, ru, nr) -> new DistributedCircularDensityFunction(tf1, tf2.orElse(null), cse, b, rl, ru, nr))
+                        .apply(instance, (tf1, tf2, cse, b, rfl, rfu, nrl, nru) -> new DistributedCircularDensityFunction(tf1, tf2.orElse(null), cse, b, rfl, rfu, nrl, nru))
         );
         public static final KeyDispatchDataCodec<DistributedCircularDensityFunction> CODEC = KeyDispatchDataCodec.of(DATA_CODEC);
         private final DCDFThreshold thresholdFunction1;
         private final @Nullable DCDFThreshold thresholdFunction2;
         private final int cellSizeExp;
         private final int buffer;
-        private final int radiusLower;
-        private final int radiusUpper;
-        private final int nomRadius;
-        private final float invNomRadiusSq;
+        private final float rFracLower;
+        private final float rFracUpper;
+        private final int nomRadiusLower;
+        private final int nomRadiusUpper;
+        private final float invNomRadiusUpper;
+        private final float invNomRadiusLower;
+        private final int distToCellThreshold;
 
         public DistributedCircularDensityFunction(
                 DCDFThreshold thresholdFunction1,
                 @Nullable DCDFThreshold thresholdFunction2,
-                int cellSizeExp, int buffer, int radiusLower, int radiusUpper, int nomRadius
+                int cellSizeExp, int buffer, float rFracLower, float rFracUpper, int nomRadiusLower, int nomRadiusUpper
         ) {
-            if (cellSizeExp < 0 || buffer < 0 || radiusUpper < 0 || radiusLower < 0 || nomRadius < 0) {
-                throw new IllegalArgumentException("Integer inputs must be non-negative.");
+            if (cellSizeExp < 0 || buffer < 0 || rFracUpper < 0 || rFracLower < 0 || nomRadiusLower < 0 || nomRadiusUpper < 0) {
+                throw new IllegalArgumentException("Inputs must be non-negative.");
             }
-            if (buffer >= 1 << cellSizeExp - 1) {
+            if (buffer >= 1 << (cellSizeExp - 1)) {
                 throw new IllegalArgumentException("Buffer must be smaller than cellSize/2");
             }
-            if (radiusUpper > 1 << cellSizeExp) {
+            if (rFracUpper * nomRadiusUpper > 1 << cellSizeExp) {
                 throw new IllegalArgumentException("Upper bound on radius must be no larger than cell size.");
             }
-            if (radiusUpper < radiusLower) {
+            if (rFracUpper < rFracLower || nomRadiusUpper < nomRadiusLower) {
                 throw new IllegalArgumentException("Upper bounds cannot be smaller than lower bounds.");
             }
             this.thresholdFunction1 = thresholdFunction1;
             this.thresholdFunction2 = thresholdFunction2;
             this.cellSizeExp = cellSizeExp;
             this.buffer = buffer;
-            this.radiusLower = radiusLower;
-            this.radiusUpper = radiusUpper;
-            this.nomRadius = nomRadius;
-            this.invNomRadiusSq = 1F / nomRadius / nomRadius;
+            this.rFracLower = rFracLower;
+            this.rFracUpper = rFracUpper;
+            this.nomRadiusLower = nomRadiusLower;   this.invNomRadiusUpper = 1F / nomRadiusLower;
+            this.nomRadiusUpper = nomRadiusUpper;   this.invNomRadiusLower = 1F / nomRadiusUpper;
+            // largest possible extent a circle in a neighboring cell could protrude into this one -- used for short-circuiting
+            this.distToCellThreshold = (int)Math.ceil(rFracUpper * nomRadiusUpper) - buffer;
         }
 
         public DistributedCircularDensityFunction(
                 DCDFThreshold thresholdFunction1,
-                int cellSizeExp, int buffer, int radiusLower, int radiusUpper, int nomRadius
+                int cellSizeExp, int buffer, float rFracLower, float rFracUpper, int nomRadiusLower, int nomRadiusUpper
         ) {
-            this(thresholdFunction1, null, cellSizeExp, buffer, radiusLower, radiusUpper, nomRadius);
+            this(thresholdFunction1, null, cellSizeExp, buffer, rFracLower, rFracUpper, nomRadiusLower, nomRadiusUpper);
         }
 
         private static final ThreadLocal<CacheContainer> THREAD_CACHE = ThreadLocal.withInitial(CacheContainer::new);
@@ -598,20 +604,22 @@ public class GCDensityFunctions {
             // circle position and radius is computed per cell
             public final int[] xCenters = new int[64];          // xCenter in each cell
             public final int[] zCenters = new int[64];          // zCenter in each cell
-            public final int[] radiiSq = new int[64];           // radiusSq in each cell
+            public final float[] rFracsSq = new float[64];      // (r / Rnom)^2 in each cell
+            public final float[] invNomRadiiSq = new float[64]; // invNomRadiusSq in each cell
             // multiplier for final density to avoid if statement
-            public final double[] meetsThresholds = new double[64];     // are threshold conditions satisfied (1.0) or not (0.0)
+            public final float[] meetsThresholds = new float[64];   // are threshold conditions satisfied (1.0) or not (0.0)
 
             public CacheContainer() {
                 java.util.Arrays.fill(keys, Long.MIN_VALUE);
             }
 
-            public void cacheValues(int idx, long key, int xCenter, int zCenter, int radiusSq, boolean meetsThreshold) {
+            public void cacheValues(int idx, long key, int xCenter, int zCenter, float rFracSq, float invNomRadiusSq, boolean meetsThreshold) {
                 keys[idx] = key;
                 xCenters[idx] = xCenter;
                 zCenters[idx] = zCenter;
-                radiiSq[idx] = radiusSq;
-                meetsThresholds[idx] = meetsThreshold ? 1.0 : 0.0;
+                rFracsSq[idx] = rFracSq;
+                invNomRadiiSq[idx] = invNomRadiusSq;
+                meetsThresholds[idx] = meetsThreshold ? 1.0F : 0.0F;
             }
         }
 
@@ -632,13 +640,18 @@ public class GCDensityFunctions {
         }
 
         private static int nextIntInRange(int hash, int min, int max) {
+            if (max < min) throw new IllegalArgumentException("Max must be greater than min.");
             int range = max - min;
-            if (range <= 0) {
-                throw new IllegalArgumentException("Max must be greater than min.");
-            }
             long unsignedHash = Integer.toUnsignedLong(hash);   // treat this as a fraction from 0 to 2^32
             int offset = (int)((unsignedHash * range) >>> 32);  // multiply fraction by range and divide by 2^32
             return min + offset;
+        }
+
+        private static float nextFloatInRange(int hash, float min, float max) {
+            // https://en.wikipedia.org/wiki/Single-precision_floating-point_format
+            int floatAsBits = 0x3F800000 | (hash & 0x7FFFFF);           // take first 23 bits of hash and set exponent to 127, which is 0
+            float randFloat = Float.intBitsToFloat(floatAsBits) - 1.0F; // random float in [0,1)
+            return min + randFloat * (max - min);
         }
 
         @Override
@@ -646,33 +659,34 @@ public class GCDensityFunctions {
             CacheContainer cache = THREAD_CACHE.get();
             final int x = context.blockX();
             final int z = context.blockZ();
-            final int distToCellThreshold = radiusUpper - buffer;
             final int minCellX = (x - distToCellThreshold) >> cellSizeExp;  // Bit shift performs floorDiv, which is desired. The loop statements auto-skip cells if out of range.
             final int maxCellX = (x + distToCellThreshold) >> cellSizeExp;
             final int minCellZ = (z - distToCellThreshold) >> cellSizeExp;
             final int maxCellZ = (z + distToCellThreshold) >> cellSizeExp;
-            double maxDensity = 0;
+            float maxDensity = 0.0F;
             // Functions could sit on boundary of neighboring cell.
             // Within each cell in 3x3 grid, determine where the density function locations should be and then process contributions.
             for (int currCellX = minCellX; currCellX <= maxCellX; currCellX++) {
                 for (int currCellZ = minCellZ; currCellZ <= maxCellZ; currCellZ++) {
                     long key = ChunkPos.asLong(currCellX, currCellZ);                   // cache key for cell position, want to guarantee uniqueness for cell (use long)
                     int seed = getSeedAtPos(currCellX, currCellZ);                      // each cell has unique seed to determine center placement
-                    int idx = seed & 63;                                                // modulo 64 (size of cache) -- note seed is sufficiently scrambled to find in cache
+                    int idx = hash(seed) & 63;                                          // modulo 64 (size of cache) -- seed must be sufficiently scrambled
                     if (cache.keys[idx] != key) {                                       // but keep long as key to verify two cells are really different
                         int xCenter = (currCellX << cellSizeExp) + nextIntInRange(hash(seed ^ 0x12345), buffer, (1 << cellSizeExp) - buffer);
                         int zCenter = (currCellZ << cellSizeExp) + nextIntInRange(hash(seed ^ 0x6789A), buffer, (1 << cellSizeExp) - buffer);
-                        int radius = radiusLower == radiusUpper ? radiusLower : nextIntInRange(hash(seed ^ 0xEDCBA), radiusLower, radiusUpper);
-                        int radiusSq = radius * radius;
+                        float rFrac = nextFloatInRange(hash(seed ^ 0xEDCBA), rFracLower, rFracUpper);
+                        float invNomRadius = nextFloatInRange(hash(seed ^ 0x42069), invNomRadiusLower, invNomRadiusUpper);    // this is technically not uniform in nomRadius and biases toward larger nomRadii
                         boolean meetsThreshold = (thresholdFunction1.computeAt(xCenter, zCenter) > 0) &&    // look at thresholdFunction at proposed placement location
                                 (thresholdFunction2 == null || thresholdFunction2.computeAt(xCenter, zCenter) > 0);
-                        cache.cacheValues(idx, key, xCenter, zCenter, radiusSq, meetsThreshold);
+                        cache.cacheValues(idx, key, xCenter, zCenter, rFrac * rFrac, invNomRadius * invNomRadius, meetsThreshold);
                     }
-                    int radiusSq = cache.radiiSq[idx];
+                    float rFracSq = cache.rFracsSq[idx];
+                    float invNomRadiusSq = cache.invNomRadiiSq[idx];
                     int dx = x - cache.xCenters[idx];
                     int dz = z - cache.zCenters[idx];
                     int distFromCenterSq = dx * dx + dz * dz;
-                    maxDensity = Math.max(maxDensity, Math.max(radiusSq - distFromCenterSq, 0) * invNomRadiusSq * cache.meetsThresholds[idx]);    // has roughly 1 - r^2 profile; 0 if below threshold or if dist >= radius
+                    // (r^2 - x^2)/R_nom^2 => rFrac^2 - x^2/R_nom^2; has roughly 1 - r^2 profile; 0 if below threshold or if dist >= radius
+                    maxDensity = Math.max(maxDensity, (rFracSq - distFromCenterSq * invNomRadiusSq) * cache.meetsThresholds[idx]);
                 }
             }
             return maxDensity;
@@ -689,7 +703,7 @@ public class GCDensityFunctions {
                     new DistributedCircularDensityFunction(
                             (DCDFThreshold) thresholdFunction1.mapAll(visitor),
                             (DCDFThreshold) (thresholdFunction2 != null ? thresholdFunction2.mapAll(visitor) : null),
-                            cellSizeExp, buffer, radiusLower, radiusUpper, nomRadius)
+                            cellSizeExp, buffer, rFracLower, rFracUpper, nomRadiusLower, nomRadiusUpper)
             );
         }
 
@@ -700,7 +714,7 @@ public class GCDensityFunctions {
 
         @Override
         public double maxValue() {
-            return (double) radiusUpper * radiusUpper * invNomRadiusSq;
+            return (double) rFracUpper * rFracUpper;
         }
 
         @Override
